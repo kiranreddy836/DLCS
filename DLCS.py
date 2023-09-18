@@ -292,7 +292,7 @@ y_position = (screen_height - window_height) // 2
 
 # Set the window size and position
 my_w.geometry(f"{window_width}x{window_height}+{x_position}+{y_position}")
-my_w.title("DIGITALISED LC SYSTEM")
+my_w.title("DIGITALIZED LC SYSTEM")
 
 # Reduce the vertical spacing between rows
 row_padding = (5, 0)
@@ -307,7 +307,7 @@ my_w.rowconfigure(4, weight=0)  # Reduce weight for submit button row
 my_w.rowconfigure(5, weight=0)  # Reduce weight for frames row
 
 # label text for title
-title_label = ttk.Label(my_w, text="DIGITALISED LINE CLEARANCE SYSTEM",
+title_label = ttk.Label(my_w, text="DIGITALIZED LINE CLEARANCE SYSTEM",
                         background='azure3', foreground="midnight blue", anchor="center",
                         font=("Times New Roman", 25, 'bold'))
 title_label.grid(row=0, column=0, padx=20, pady=row_padding, columnspan=2)
