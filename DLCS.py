@@ -19,13 +19,112 @@ def stop_camera():
         camera_running = False
         cap.release()
 
+# Function to enable or disable the "Select Feeder" combo box
+def set_combo_box_state(state):
+    cb1["state"] = state  # Set the state of the combo box
+
+# Function to re-enable the "Select Feeder" combo box when the name selection window is closed
+def on_name_selection_window_close(name_selection_window):
+    global combo_box_state  # Use the global variable
+    set_combo_box_state(combo_box_state)  # Restore the previous state
+    name_selection_window.destroy()  # Close the name selection window
+
+# Create a function to display names for logout in a new window
+def display_names_for_logout(selectedFeeder):
+    global combo_box_state  # Use the global variable
+    # Disable the "Select Feeder" combo box when this window is open
+    combo_box_state = cb1.cget("state")  # Save the current state
+    set_combo_box_state("disabled")  # Disable the combo box
+
+    # Create a new window for name selection
+    name_selection_window = tk.Toplevel(my_w)
+    name_selection_window.title("Select Name for Logout")
+
+    # Increase the size of the window
+    window_width = 400
+    window_height = 200
+
+    # Calculate the window position to center it on the screen
+    screen_width = name_selection_window.winfo_screenwidth()
+    screen_height = name_selection_window.winfo_screenheight()
+    x_position = (screen_width - window_width) // 2
+    y_position = (screen_height - window_height) // 2
+
+    # Set the window size and position
+    name_selection_window.geometry(f"{window_width}x{window_height}+{x_position}+{y_position}")
+
+    # Disable both minimize and maximize options
+    name_selection_window.attributes("-toolwindow", 1)
+
+    # Fetch names corresponding to the selected feeder number from the database
+    query = "SELECT names FROM logindata WHERE feederno = ?"
+    cur.execute(query, (selectedFeeder,))
+    result = cur.fetchone()
+
+    if result:
+        names_list = result[0].split(',') if result[0] else []
+
+        # Create a label for the combo box
+        combo_label = ttk.Label(name_selection_window, text="Select a name to log out:")
+        combo_label.pack(padx=10, pady=10)
+
+        # Create a combo box to display names
+        selected_name = tk.StringVar(value='Select')
+        combo_box = ttk.Combobox(name_selection_window, textvariable=selected_name, values=names_list,state="readonly")
+        combo_box.pack(padx=10, pady=10)
+
+        def logout_selected_name():
+            name_to_logout = selected_name.get()
+            if name_to_logout:
+                # Remove the selected name from the list
+                names_list.remove(name_to_logout)
+                updated_names = ",".join(names_list)
+                query = "UPDATE logindata SET names = ? WHERE feederno = ?"
+                cur.execute(query, (updated_names, selectedFeeder))
+                conn.commit()
+                initialize_feeder_info_window(my_w)
+                custom_message_box("User Logout", f"{name_to_logout} has been logged out from {selectedFeeder}.", "green")
+                name_selection_window.destroy()
+                on_name_selection_window_close(name_selection_window)
+            else:
+                custom_message_box("No Name Selected", "Please select a name to log out.", "red")
+
+        # Bind the window close event to re-enable the "Select Feeder" combo box
+        name_selection_window.protocol("WM_DELETE_WINDOW", lambda: on_name_selection_window_close(name_selection_window))
+        # Create a submit button
+        submit_button = ttk.Button(name_selection_window, text="Submit", command=logout_selected_name)
+        submit_button.pack(padx=10, pady=10)
+
+    else:
+        custom_message_box("Feeder Not Found", f"Feeder {selectedFeeder} not found.", "red")
+
+def logout_user(feeder_no, user_to_logout):
+        query = "SELECT names FROM logindata WHERE feederno = ?"
+        cur.execute(query, (feeder_no,))
+        result = cur.fetchone()
+
+        if result:
+            names = result[0].split(',') if result[0] else []
+            if user_to_logout in names:
+                names.remove(user_to_logout)
+                updated_names = ",".join(names)
+                query = "UPDATE logindata SET names = ? WHERE feederno = ?"
+                cur.execute(query, (updated_names, feeder_no))
+                conn.commit()
+                initialize_feeder_info_window(my_w)
+                custom_message_box("User Logout", f"{user_to_logout} has been logged out from {feeder_no}.", "green")
+            else:
+                custom_message_box("User Not Found", f"{user_to_logout} is not logged into {feeder_no}.", "orange red")
+        else:
+            custom_message_box("Feeder Not Found", f"Feeder {feeder_no} not found.", "red")
+
 # Function to initialize the feeder info window
 def initialize_feeder_info_window(parent):
-    feeder_info_frame = tk.Frame(parent, background="azure")
-    feeder_info_frame.place(relx=0.69, rely=0.1, relwidth=0.3, relheight=0.33)
+    feeder_info_frame = tk.Frame(parent, background="snow2")
+    feeder_info_frame.place(relx=0.69, rely=0.1, relwidth=0.3, relheight=0.22)
     
     # Create label for Feeders Info Frame
-    label = tk.Label(feeder_info_frame, text="STATUS OF THE FEEDERS", font=("Times New Roman", 12, "bold"), background="yellow2")
+    label = tk.Label(feeder_info_frame, text="STATUS OF THE FEEDERS", font=("Times New Roman", 14, "bold"), background="snow2")
     label.pack()
 
     # Create a horizontal scrollbar for the treeview
@@ -95,7 +194,7 @@ def initialize_feeder_info_window(parent):
         GPIO.output(pin5, GPIO.HIGH if feeder_no == "Feeder-5" and len(locked_names) != 0 else GPIO.LOW)
         GPIO.output(pin6, GPIO.HIGH if feeder_no == "Feeder-6" and len(locked_names) != 0 else GPIO.LOW)
         GPIO.output(pin7, GPIO.HIGH if feeder_no == "Feeder-7" and len(locked_names) != 0 else GPIO.LOW)
-        GPIO.output(pin8, GPIO.HIGH if feeder_no == "Feeder-8" and len(locked_names) != 0 else GPIO.LOW)"""
+        GPIO.output(pin8, GPIO.HIGH if feeder_no == "Feeder-8" and len(locked_names) != 0 else GPIO.LOW)
 
         var1 = 0 if feeder_no == "Feeder-1" and len(locked_names) != 0 else 1
         var2 = 0 if feeder_no == "Feeder-2" and len(locked_names) != 0 else 1
@@ -121,7 +220,7 @@ def initialize_feeder_info_window(parent):
         if var7==0:
             print("pin-7 status set low")
         if var8==0:
-            print("pin-8 status set low")
+            print("pin-8 status set low") """
 
         if locked_names:
             names_list = locked_names.split(',')
@@ -144,12 +243,14 @@ def initialize_feeder_info_window(parent):
     print(max_locked_by_width)
     # Set the "Locked By" column width with some padding
     tree.column("Feeder No", width=100)
-    tree.column("Locked By", width=max_locked_by_width * 5)  # Adjust the multiplier as needed multiplier as needed
+    tree.column("Locked By", width=max_locked_by_width * 2)  # Adjust the multiplier as needed multiplier as needed
     tree.pack()
 
 def show_contact_details():
     contact_details_window = tk.Toplevel(my_w)
     contact_details_window.title("Contact Details")
+        # Disable both minimize and maximize options
+    contact_details_window.attributes("-toolwindow", 1)
 
     # Create a Treeview widget to display the contact details
     contact_tree = ttk.Treeview(contact_details_window, columns=("Name","Cpf Number","Phone Number") , show="headings")
@@ -173,9 +274,9 @@ def show_contact_details():
 
 # Build the Tkinter window
 my_w = tk.Tk()
-my_w.configure(bg="slate gray")
+my_w.configure(bg="azure3")
 
-# Create a "Show Contact Details" buttona
+# Create a "Show Contact Details" button
 show_contact_button = ttk.Button(my_w, text="Contacts Directory", command=show_contact_details)
 show_contact_button.place(x=10, y=10)  # Adjust the coordinates as needed
 
@@ -207,14 +308,14 @@ my_w.rowconfigure(5, weight=0)  # Reduce weight for frames row
 
 # label text for title
 title_label = ttk.Label(my_w, text="DIGITALISED LINE CLEARANCE SYSTEM",
-                        background='azure3', foreground="black", anchor="center",
-                        font=("Times New Roman", 20, 'bold'))
+                        background='azure3', foreground="midnight blue", anchor="center",
+                        font=("Times New Roman", 25, 'bold'))
 title_label.grid(row=0, column=0, padx=20, pady=row_padding, columnspan=2)
 
 # label text for unit selection
 unit_label = ttk.Label(my_w, text="MINE-1A SUBSTATION",
-                       background='azure3', foreground="black",
-                       font=("Times New Roman", 18, 'bold'))
+                       background='azure3', foreground="midnight blue",
+                       font=("Times New Roman", 20, 'bold'))
 unit_label.grid(row=1, column=0, padx=20, pady=20, columnspan=2)
 
 # String for handling transitions
@@ -235,7 +336,7 @@ feeder_label = ttk.Label(my_w, text="FEEDER NUMBER",
                          font=("Times New Roman", 15, 'bold'))
 feeder_label.grid(row=2, column=0, padx=20, pady=10, columnspan=2)
 
-cb1 = ttk.Combobox(my_w, values=displayfeeders, width=70, textvariable=sel)
+cb1 = ttk.Combobox(my_w, values=displayfeeders, width=70, textvariable=sel,state="readonly")
 cb1.grid(row=3, column=0, padx=20, pady=30, columnspan=2)
 
 def custom_message_box(title, message, bg_color):
@@ -441,10 +542,11 @@ def show_frames(label, selectedFeeder):
                                 custom_message_box("UNLOCK SUCCESS", f"{selectedFeeder} has been unlocked by {qrName} successfully", "SpringGreen3")
                             elif master_status == "Y" and qrName not in names and len(names)!=0:
                                 # Master status is "Y", ask for confirmation before logging out all users
-                                confirmation = messagebox.askyesno("Master Logout Confirmation", "Are you sure you want to log out all users from the feeder?")
+                                confirmation = messagebox.askyesno("Master Logout Confirmation", "Are you sure you want to log out other users from the feeder?")
                                 if(confirmation):
-                                     logout_all_users(selectedFeeder)
-                                     custom_message_box("MASTER LOGOUT", "All users logged out from the feeder", "red")
+                                     #logout_all_users(selectedFeeder)
+                                     display_names_for_logout(selectedFeeder)
+                                     #custom_message_box("MASTER LOGOUT", "All users logged out from the feeder", "red")
                                 else:
                                 # User canceled the operation
                                  custom_message_box("Operation Cancelled", "Master logout operation canceled", "green")
@@ -507,6 +609,7 @@ def submit(selectedFeeder):
 # Create the submit button with an initial state of "disabled"
 submitbutton = ttk.Button(my_w, width=10, text='SUBMIT', state="disabled")
 submitbutton.grid(row=4, column=0, padx=20, pady=10, columnspan=2)
+my_w.bind("<Return>", lambda event=None: submitbutton.invoke())
 
 initialize_feeder_info_window(my_w)
 
