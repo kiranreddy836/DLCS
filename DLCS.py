@@ -22,7 +22,7 @@ def stop_camera():
 # Function to initialize the feeder info window
 def initialize_feeder_info_window(parent):
     feeder_info_frame = tk.Frame(parent, background="azure")
-    feeder_info_frame.place(relx=0.69, rely=0.1, relwidth=0.30, relheight=0.33)
+    feeder_info_frame.place(relx=0.69, rely=0.1, relwidth=0.3, relheight=0.33)
     
     # Create label for Feeders Info Frame
     label = tk.Label(feeder_info_frame, text="STATUS OF THE FEEDERS", font=("Times New Roman", 12, "bold"), background="yellow2")
@@ -46,8 +46,6 @@ def initialize_feeder_info_window(parent):
     tree.heading("Feeder No", text="Feeder No", anchor="w")
     tree.heading("Locked By", text="Locked By", anchor="w")
 
-    tree.column("Feeder No", width=100)
-    tree.column("Locked By", width=350)
 
     h_scrollbar.config(command=tree.xview)  # Connect horizontal scrollbar to treeview
     y_scrollbar.config(command=tree.yview)  # Connect vertical scrollbar to treeview
@@ -140,7 +138,13 @@ def initialize_feeder_info_window(parent):
         # Insert the row with the specified background color
         tree.insert("", "end", values=(feeder_no, names_display), iid=feeder_no, tags=("bg_color_" + bg_color,"bold"))
         tree.tag_configure("bg_color_" + bg_color, background=bg_color)
-
+        
+    # Calculate the maximum width needed for the "Locked By" column
+    max_locked_by_width = max([len(name) for name in names_list], default=350)
+    print(max_locked_by_width)
+    # Set the "Locked By" column width with some padding
+    tree.column("Feeder No", width=100)
+    tree.column("Locked By", width=max_locked_by_width * 5)  # Adjust the multiplier as needed multiplier as needed
     tree.pack()
 
 def show_contact_details():
