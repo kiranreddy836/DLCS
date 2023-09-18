@@ -1,0 +1,509 @@
+import tkinter as tk
+import tkinter.ttk as ttk
+import sqlite3
+import cv2
+from PIL import Image, ImageTk
+import numpy as np
+from pyzbar.pyzbar import decode
+import tkinter.messagebox as messagebox
+#import RPi.GPIO as GPIO
+
+# Establish SQLITE Database Connection (If using SQLite3 -- Comment other connection modes if using SQLite)
+conn = sqlite3.connect('ilcst.db')
+cur = conn.cursor()
+
+# Function to stop the camera feed
+def stop_camera():
+    global camera_running, cap
+    if camera_running:
+        camera_running = False
+        cap.release()
+
+# Function to initialize the feeder info window
+def initialize_feeder_info_window(parent):
+    feeder_info_frame = tk.Frame(parent, background="azure")
+    feeder_info_frame.place(relx=0.69, rely=0.1, relwidth=0.30, relheight=0.33)
+    
+    # Create label for Feeders Info Frame
+    label = tk.Label(feeder_info_frame, text="STATUS OF THE FEEDERS", font=("Times New Roman", 12, "bold"), background="yellow2")
+    label.pack()
+
+    # Create a horizontal scrollbar for the treeview
+    h_scrollbar = ttk.Scrollbar(feeder_info_frame, orient="horizontal", style="Horizontal.TScrollbar")
+    h_scrollbar.pack(side="bottom", fill="x")
+
+    # Create a vertical scrollbar for the treeview
+    y_scrollbar = ttk.Scrollbar(feeder_info_frame, orient="vertical", style="Vertical.TScrollbar")
+    y_scrollbar.pack(side="right", fill="y")
+    
+    header_style = ttk.Style()
+    header_style.configure("Treeview.Heading", font=("Times New Roman", 13, "bold"))
+    
+    tree = ttk.Treeview(feeder_info_frame, columns=("Feeder No", "Locked By"), show="headings", xscrollcommand=h_scrollbar.set, yscrollcommand=y_scrollbar.set)
+    
+    tree.tag_configure("bold", font=("Arial", 10, "bold"))
+   
+    tree.heading("Feeder No", text="Feeder No", anchor="w")
+    tree.heading("Locked By", text="Locked By", anchor="w")
+
+    tree.column("Feeder No", width=100)
+    tree.column("Locked By", width=350)
+
+    h_scrollbar.config(command=tree.xview)  # Connect horizontal scrollbar to treeview
+    y_scrollbar.config(command=tree.yview)  # Connect vertical scrollbar to treeview
+
+    # Fetch feeder data from the database and update the treeview
+    query = """
+    SELECT ld.feederno, ld.names
+    FROM logindata AS ld
+    ORDER BY ld.feederno ASC
+    """
+    cur.execute(query)
+    rows = cur.fetchall()
+
+    """# Set the GPIO mode to BCM
+    GPIO.setmode(GPIO.BCM)
+
+    # Set designated GPIO pins as an output (replace pin numbers with appropriate numbers for SBC)
+    GPIO.setup(pin1, GPIO.OUT)
+    GPIO.setup(pin2, GPIO.OUT)
+    GPIO.setup(pin3, GPIO.OUT)
+    GPIO.setup(pin4, GPIO.OUT)
+    GPIO.setup(pin5, GPIO.OUT)
+    GPIO.setup(pin6, GPIO.OUT)
+    GPIO.setup(pin7, GPIO.OUT)
+    GPIO.setup(pin8, GPIO.OUT)"""
+
+    var1 = 0
+    var2 = 0
+    var3 = 0
+    var4 = 0
+    var5 = 0
+    var6 = 0
+    var7 = 0
+    var8 = 0
+    var9 = 0
+    var10 = 0
+
+    for row in rows:
+        # Use feeder Number and Status to activate the SBC pins based on user interaction with the GUI
+        feeder_no = row[0]
+        locked_names = row[1]
+
+        """GPIO.output(pin1, GPIO.HIGH if feeder_no == "Feeder-1" and len(locked_names) != 0 else GPIO.LOW)
+        GPIO.output(pin2, GPIO.HIGH if feeder_no == "Feeder-2" and len(locked_names) != 0 else GPIO.LOW)
+        GPIO.output(pin3, GPIO.HIGH if feeder_no == "Feeder-3" and len(locked_names) != 0 else GPIO.LOW)
+        GPIO.output(pin4, GPIO.HIGH if feeder_no == "Feeder-4" and len(locked_names) != 0 else GPIO.LOW)
+        GPIO.output(pin5, GPIO.HIGH if feeder_no == "Feeder-5" and len(locked_names) != 0 else GPIO.LOW)
+        GPIO.output(pin6, GPIO.HIGH if feeder_no == "Feeder-6" and len(locked_names) != 0 else GPIO.LOW)
+        GPIO.output(pin7, GPIO.HIGH if feeder_no == "Feeder-7" and len(locked_names) != 0 else GPIO.LOW)
+        GPIO.output(pin8, GPIO.HIGH if feeder_no == "Feeder-8" and len(locked_names) != 0 else GPIO.LOW)"""
+
+        var1 = 0 if feeder_no == "Feeder-1" and len(locked_names) != 0 else 1
+        var2 = 0 if feeder_no == "Feeder-2" and len(locked_names) != 0 else 1
+        var3 = 0 if feeder_no == "Feeder-3" and len(locked_names) != 0 else 1
+        var4 = 0 if feeder_no == "Feeder-4" and len(locked_names) != 0 else 1
+        var5 = 0 if feeder_no == "Feeder-5" and len(locked_names) != 0 else 1
+        var6 = 0 if feeder_no == "Feeder-6" and len(locked_names) != 0 else 1
+        var7 = 0 if feeder_no == "Feeder-7" and len(locked_names) != 0 else 1
+        var8 = 0 if feeder_no == "Feeder-8" and len(locked_names) != 0 else 1
+
+        if var1==0:
+            print("pin-1 status set low")
+        if var2==0:
+            print("pin-2 status set low")
+        if var3==0:
+            print("pin-3 status set low")
+        if var4==0:
+            print("pin-4 status set low")
+        if var5==0:
+            print("pin-5 status set low")
+        if var6==0:
+            print("pin-6 status set low")
+        if var7==0:
+            print("pin-7 status set low")
+        if var8==0:
+            print("pin-8 status set low")
+
+        if locked_names:
+            names_list = locked_names.split(',')
+        else:
+            names_list = []
+        names_display = ', '.join(names_list)
+        
+        # Determine the background color based on whether "names" is empty or not
+        if names_display:
+            bg_color = "sienna1"
+        else:
+            bg_color = "spring green"
+        
+        # Insert the row with the specified background color
+        tree.insert("", "end", values=(feeder_no, names_display), iid=feeder_no, tags=("bg_color_" + bg_color,"bold"))
+        tree.tag_configure("bg_color_" + bg_color, background=bg_color)
+
+    tree.pack()
+
+def show_contact_details():
+    contact_details_window = tk.Toplevel(my_w)
+    contact_details_window.title("Contact Details")
+
+    # Create a Treeview widget to display the contact details
+    contact_tree = ttk.Treeview(contact_details_window, columns=("Name","Cpf Number","Phone Number") , show="headings")
+    contact_tree.heading("Name", text="Name", anchor=tk.W)
+    contact_tree.heading("Cpf Number", text="Cpf Number",anchor=tk.W)
+    contact_tree.heading("Phone Number", text="Phone Number",anchor=tk.W)
+    contact_tree.pack()
+
+    # Fetch and display contact details from the 'users' table
+    query = "SELECT name,cpf_no,phone_no FROM users"
+    cur.execute(query)
+    rows = cur.fetchall()
+
+    for row in rows:
+        name, cpf_no, phone_number = row
+        contact_tree.insert("", "end", values=(name, cpf_no, phone_number))
+
+    # Close button
+    close_button = ttk.Button(contact_details_window, text="Close", command=contact_details_window.destroy)
+    close_button.pack()
+
+# Build the Tkinter window
+my_w = tk.Tk()
+my_w.configure(bg="slate gray")
+
+# Create a "Show Contact Details" buttona
+show_contact_button = ttk.Button(my_w, text="Contacts Directory", command=show_contact_details)
+show_contact_button.place(x=10, y=10)  # Adjust the coordinates as needed
+
+# Get screen width and height
+screen_width = my_w.winfo_screenwidth()
+screen_height = my_w.winfo_screenheight()
+
+# Calculate the window size and position it in the center
+window_width = int(screen_width * 1)  # You can adjust this as needed
+window_height = int(screen_height * 1)  # You can adjust this as needed
+x_position = (screen_width - window_width) // 2
+y_position = (screen_height - window_height) // 2
+
+# Set the window size and position
+my_w.geometry(f"{window_width}x{window_height}+{x_position}+{y_position}")
+my_w.title("DIGITALISED LC SYSTEM")
+
+# Reduce the vertical spacing between rows
+row_padding = (5, 0)
+
+# Configure grid weights for responsive layout
+my_w.columnconfigure(0, weight=1)
+my_w.rowconfigure(0, weight=0)  # Reduce weight for title row
+my_w.rowconfigure(1, weight=0)  # Reduce weight for unit row
+my_w.rowconfigure(2, weight=0)  # Reduce weight for feeder label row
+my_w.rowconfigure(3, weight=0)  # Reduce weight for combo box row
+my_w.rowconfigure(4, weight=0)  # Reduce weight for submit button row
+my_w.rowconfigure(5, weight=0)  # Reduce weight for frames row
+
+# label text for title
+title_label = ttk.Label(my_w, text="DIGITALISED LINE CLEARANCE SYSTEM",
+                        background='azure3', foreground="black", anchor="center",
+                        font=("Times New Roman", 20, 'bold'))
+title_label.grid(row=0, column=0, padx=20, pady=row_padding, columnspan=2)
+
+# label text for unit selection
+unit_label = ttk.Label(my_w, text="MINE-1A SUBSTATION",
+                       background='azure3', foreground="black",
+                       font=("Times New Roman", 18, 'bold'))
+unit_label.grid(row=1, column=0, padx=20, pady=20, columnspan=2)
+
+# String for handling transitions
+sel = tk.StringVar(value='Select the Feeder')
+
+data = ("MINE-1A",)
+cur.execute("select number from feeders where unit=?", data)
+row = cur.fetchone()
+feederCount = row[0]
+displayfeeders = []
+
+for i in range(feederCount):
+    displayfeeders.append("Feeder-" + str(i+1))
+
+# Combo box for selecting the feeder Number for the corresponding unit selected
+feeder_label = ttk.Label(my_w, text="FEEDER NUMBER",
+                         background='burlywood1', foreground="black",
+                         font=("Times New Roman", 15, 'bold'))
+feeder_label.grid(row=2, column=0, padx=20, pady=10, columnspan=2)
+
+cb1 = ttk.Combobox(my_w, values=displayfeeders, width=70, textvariable=sel)
+cb1.grid(row=3, column=0, padx=20, pady=30, columnspan=2)
+
+def custom_message_box(title, message, bg_color):
+
+    custom_box = tk.Toplevel()
+    custom_box.configure(bg="White")
+    # Disable window maximize button
+    custom_box.resizable(False, False)
+    
+    # Remove the default title bar
+    custom_box.overrideredirect(1)
+    
+    # Create a custom title bar frame with a green background
+    title_bar = tk.Frame(custom_box, bg=bg_color, relief="raised", bd=1)
+    title_bar.pack(fill="x")
+    
+    # Create a label for the title within the custom title bar
+    title_label = ttk.Label(title_bar, text=title, font=("Times New Roman", 16, "bold"),  background=bg_color)
+    title_label.pack(side="left", padx=5)
+    
+    # Calculate screen width and height
+    screen_width = custom_box.winfo_screenwidth()
+    screen_height = custom_box.winfo_screenheight()
+    
+    # Calculate the window size and position it in the center
+    window_width = 500  # Adjust as needed
+    window_height = 180  # Adjust as needed
+    x_position = (screen_width - window_width) // 2
+    y_position = (screen_height - window_height) // 2
+    
+    # Set the window size and position
+    custom_box.geometry(f"{window_width}x{window_height}+{x_position}+{y_position}")
+    
+    # Create a label with the message and set text wrapping
+    message_label = ttk.Label(custom_box, text=message, font=("Arial", 11), wraplength=400,background="White")
+    message_label.pack(pady=20)
+    
+    # Create an OK button
+    ok_button = ttk.Button(custom_box, text="OK", command=custom_box.destroy)
+    ok_button.pack()
+    # Bind the Enter key to the OK button to activate it
+    custom_box.bind("<Return>", lambda event=None: ok_button.invoke())
+    # Set the focus to the OK button
+    ok_button.focus_set()
+    # Make the custom box modal (blocks input to other windows)
+    custom_box.grab_set()
+    
+    # Wait for the custom box to be closed
+    custom_box.wait_window(custom_box)
+
+def my_upd(*args):
+    stop_camera()
+    for w in my_w.grid_slaves(row=5):  # all elements in row 5
+        w.grid_remove()  # delete elements
+
+    # Combo box for selecting the feeder Number for the corresponding unit selected
+    selectedFeeder = sel.get()
+    print("Display the selected feeder" + selectedFeeder)
+    print(selectedFeeder)
+    # Check if the combo box is displaying the default value
+    if selectedFeeder == "Select the Feeder":
+        submitbutton.config(state="disabled")
+    else:
+        submitbutton.config(state="normal", command=lambda: submit(selectedFeeder))
+    # Update the state of the submit button
+    if not camera_running:
+        submitbutton.config(state="normal", command=lambda: submit(selectedFeeder))
+    else:
+        submitbutton.config(state="disabled")
+    submitbutton.grid(row=4, column=0, padx=20, pady=10, columnspan=2)
+
+sel.trace('w', my_upd)
+
+# Create a flag to track whether the camera is running
+camera_running = False
+
+# Create a reference to the camera capture
+cap = None
+
+# Function to check master status from the users table
+def check_master_status(qrCPF):
+    query = "SELECT master FROM users WHERE cpf_no = ?"
+    cur.execute(query, (qrCPF,))
+    result = cur.fetchone()
+    if result:
+        return result[0]
+    else:
+        return None
+# Function to log out all users from a feeder
+def logout_all_users(selectedFeeder):
+    query = "UPDATE logindata SET names = '' WHERE feederno = ?"
+    cur.execute(query, (selectedFeeder,))
+    conn.commit()
+    initialize_feeder_info_window(my_w)
+
+def show_frames(label, selectedFeeder):
+    global camera_running, cap
+    cap = cv2.VideoCapture(0)
+
+    def detect_and_display_qr_codes():
+        ret, frame = cap.read()
+        if not ret:
+            return
+        # Convert the frame to grayscale for QR code detection
+        gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+        # Detect QR codes
+        decoded_objects = decode(frame)
+        for obj in decoded_objects:
+            qr_data = obj.data.decode('utf-8')
+            points = obj.polygon
+            if len(points) >= 4:
+                # Draw a border around the QR code
+                cv2.polylines(frame, [np.array(points)], True, (0, 255, 0), 2)
+
+                # Display QR code data
+                cv2.putText(frame, qr_data, (points[0][0], points[0][1] - 10),
+                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+
+                # Check if qr_data exists in the logindata table
+                query = "SELECT names FROM logindata WHERE feederno = ?"
+                cur.execute(query, (selectedFeeder,))
+                result = cur.fetchone()
+                print(result)
+
+                # Split QR Code data
+                print(qr_data)
+                partsqr = qr_data.split("_")
+                if len(partsqr) == 3:
+                    name, qrCPF, qrMode = partsqr
+                    print("String 2 Decoded:", qrCPF)
+                    qrName = "_".join([name,qrCPF])
+                    if result is not None:
+                        names = result[0].split(",") if result[0] else []
+                    else:
+                        print("No matching record found.")
+                    if "ON" in qr_data:
+                        if result is not None:
+                            # User is already logged in
+                            if len(names)!=0 and qrName not in names:
+                                names.append(qrName)
+                                # Update the names in the logindata table
+                                updated_names = ",".join(names)
+                                query = "UPDATE logindata SET names = ? WHERE feederno = ?"
+                                cur.execute(query, (updated_names, selectedFeeder))
+                                conn.commit()
+                                initialize_feeder_info_window(my_w)
+                                custom_message_box("LOCK SUCCESS - MULTIPLE LOCKS FOUND", f" You have locked the feeder Successfully. {selectedFeeder} is now locked by multiple persons", "dark orange")
+                                # Stop the camera feed
+                                stop_camera()
+                                sel.set("Select the Feeder")
+                                submitbutton.config(state="disabled")
+                                for w in my_w.grid_slaves(row=5):
+                                    w.grid_remove() 
+                            elif len(names)!=0 and qrName in names: 
+                                custom_message_box("FEEDER ALREADY LOCKED", f"{selectedFeeder} is already locked by you", "pale turquoise")
+                                # Stop the camera feed
+                                stop_camera()
+                                sel.set("Select the Feeder")
+                                submitbutton.config(state="disabled")
+                                for w in my_w.grid_slaves(row=5):
+                                    w.grid_remove() 
+                            elif len(names) == 0:       
+                                # update data into the logindata table
+                                query = "UPDATE logindata SET names = ? WHERE feederno = ?"
+                                data = (qrName,selectedFeeder)
+                                cur.execute(query, data)
+                                conn.commit()
+                                initialize_feeder_info_window(my_w)
+                                custom_message_box("LOCK SUCCESS", f"The {selectedFeeder} has been successfully locked by {qrName}", "SpringGreen3")
+                                # Stop the camera feed
+                                stop_camera()
+                                # Set the combo box value back to default
+                                sel.set("Select the Feeder")
+                                submitbutton.config(state="disabled")
+                                for w in my_w.grid_slaves(row=5):
+                                  w.grid_remove()
+                        else:
+                            query = "INSERT INTO logindata (feederno, names) VALUES (?, ?)"
+                            data = (selectedFeeder, qrName)
+                            cur.execute(query, data)
+                            conn.commit()
+                            initialize_feeder_info_window(my_w)
+                            custom_message_box("LOCK SUCCESS", f"The {selectedFeeder} has been successfully locked by {qrName}", "SpringGreen3")
+                            # Stop the camera feed
+                            stop_camera()
+                            # Set the combo box value back to default
+                            sel.set("Select the Feeder")
+                            submitbutton.config(state="disabled")
+                            for w in my_w.grid_slaves(row=5):
+                                w.grid_remove()
+                    elif "OFF" in qr_data:
+                        master_status = check_master_status(qrCPF)
+                        if result is not None:
+                            # User logged out, delete the corresponding name from the list
+                            if qrName in names and len(names)!=0:
+                                names.remove(qrName)
+                                updated_names = ",".join(names)
+                                query = "UPDATE logindata SET names = ? WHERE feederno = ?"
+                                cur.execute(query, (updated_names, selectedFeeder))
+                                conn.commit()
+                                initialize_feeder_info_window(my_w)
+                                custom_message_box("UNLOCK SUCCESS", f"{selectedFeeder} has been unlocked by {qrName} successfully", "SpringGreen3")
+                            elif master_status == "Y" and qrName not in names and len(names)!=0:
+                                # Master status is "Y", ask for confirmation before logging out all users
+                                confirmation = messagebox.askyesno("Master Logout Confirmation", "Are you sure you want to log out all users from the feeder?")
+                                if(confirmation):
+                                     logout_all_users(selectedFeeder)
+                                     custom_message_box("MASTER LOGOUT", "All users logged out from the feeder", "red")
+                                else:
+                                # User canceled the operation
+                                 custom_message_box("Operation Cancelled", "Master logout operation canceled", "green")
+                            else:
+                                custom_message_box("FEEDER CANNOT BE UNLOCKED", f"{selectedFeeder} is not locked by you", "pale turquoise")
+                        else:
+                             custom_message_box("FEEDER NOT LOCKED BY ANY ONE", f"{selectedFeeder} is not locked anyone. Close the Scanner", "orange red")
+                        # Stop the camera feed
+                        stop_camera()
+                        sel.set("Select the Feeder")
+                        submitbutton.config(state="disabled")
+                        for w in my_w.grid_slaves(row=5):
+                            w.grid_remove()
+                else:
+                    custom_message_box("UNAUTHORISED QR CODE DETECTED", "Unauthorised access detected. Close the Scanner", "orange red")
+                    # Stop the camera feed
+                    stop_camera()
+                    sel.set("Select the Feeder")
+                    submitbutton.config(state="disabled")
+                    for w in my_w.grid_slaves(row=5):
+                        w.grid_remove()
+        # Convert the OpenCV frame to a Tkinter-compatible image
+        img = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        img = Image.fromarray(img)
+        imgtk = ImageTk.PhotoImage(image=img)
+
+        # Update the label with the new image
+        label.imgtk = imgtk
+        label.configure(image=imgtk)
+
+        if camera_running:
+            # Call this function again after a delay to capture frames continuously
+            label.after(20, detect_and_display_qr_codes)
+
+    def start_camera():
+        global camera_running
+        if not camera_running:
+            camera_running = True
+            submitbutton.config(state="disabled")  # Disable the button when the camera starts
+            detect_and_display_qr_codes()
+
+    def stop_camera():
+        global camera_running, cap
+        if camera_running:
+            camera_running = False
+            cap.release()
+            label.imgtk = None
+            label.configure(image=None)
+
+    # Start the camera when the frame is shown
+    start_camera()
+
+# Function to handle the "SUBMIT" button click
+def submit(selectedFeeder):
+    label = tk.Label(my_w, width=600, height=400)
+    label.grid(row=5, column=0, columnspan=2)
+    show_frames(label, selectedFeeder)  # Pass the label to the show_frames function
+    # Set the combo box back to the default value
+
+# Create the submit button with an initial state of "disabled"
+submitbutton = ttk.Button(my_w, width=10, text='SUBMIT', state="disabled")
+submitbutton.grid(row=4, column=0, padx=20, pady=10, columnspan=2)
+
+initialize_feeder_info_window(my_w)
+
+my_w.mainloop()
