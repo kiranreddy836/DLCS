@@ -17,6 +17,17 @@ if os.path.isfile(lock_file):
 # Create the lock file
 open(lock_file, 'w').close()
 
+def display_logo_and_title(root):
+    try:
+        logo_image = Image.open(r"C:\Users\KIRAN_MANVI_CHERRY\Desktop\nlclogo.png") 
+        logo_image = logo_image.resize((100, 100))
+        logo_photo = ImageTk.PhotoImage(logo_image)
+        root.logo_photo = logo_photo  # Store the PhotoImage as an attribute of the root window
+        logo_label = tk.Label(root, image=logo_photo)
+        logo_label.grid(row=0, column=0, padx=10, pady=10, sticky="w")
+    except FileNotFoundError:
+        print("Logo image not found. Make sure the image file exists.")
+
 # Establish SQLITE Database Connection (If using SQLite3 -- Comment other connection modes if using SQLite)
 db_file = r"C:\DLCS\ilcst.db"
 conn = sqlite3.connect(db_file)
@@ -232,7 +243,7 @@ def custom_askyesno(title, message, bg_color):
 # Function to initialize the feeder info window
 def initialize_feeder_info_window(parent):
     feeder_info_frame = tk.Frame(parent, background="snow2")
-    feeder_info_frame.place(relx=0.64, rely=0.08, relwidth=0.35, relheight=0.28)
+    feeder_info_frame.place(relx=0.64, rely=0.11, relwidth=0.35, relheight=0.28)
 
     # Create label for Feeders Info Frame
     label = tk.Label(feeder_info_frame, text="STATUS OF THE FEEDERS", font=("Arial", 14, "bold"), background="snow2",foreground="blue")
@@ -406,11 +417,12 @@ my_w.resizable(False, False)
 # Remove the default title bar
 # Disable both minimize and maximize options
 #my_w.attributes("-toolwindow", 1)
-
+display_logo_and_title(my_w)
 
 # Create a "Show Contact Details" button
 show_contact_button = ttk.Button(my_w, text="Contacts Directory", command=show_contact_details)
-show_contact_button.place(x=10, y=10)  # Adjust the coordinates as needed
+#show_contact_button.place(x=10, y=10)  # Adjust the coordinates as needed
+show_contact_button.grid(row=0, column=0, padx=50, pady=15, sticky="e")
 
 # Get screen width and height
 screen_width = my_w.winfo_screenwidth()
@@ -444,13 +456,13 @@ my_w.rowconfigure(5, weight=0)  # Reduce weight for frames row
 title_label = ttk.Label(my_w, text="DIGITALIZED LINE CLEARANCE SYSTEM",
                         background='azure3', foreground="midnight blue", anchor="center",
                         font=("Times New Roman", 25, 'bold'))
-title_label.grid(row=0, column=0, padx=20, pady=row_padding, columnspan=2)
+title_label.grid(row=0, column=0, padx=100, pady=row_padding, columnspan=2)
 
 # label text for unit selection
 unit_label = ttk.Label(my_w, text="MINE-1A SUBSTATION",
                        background='azure3', foreground="midnight blue",
                        font=("Times New Roman", 20, 'bold'))
-unit_label.grid(row=1, column=0, padx=20, pady=20, columnspan=2)
+unit_label.grid(row=1, column=0, padx=20, pady=10, columnspan=2)
 
 # String for handling transitions
 sel = tk.StringVar(value='Select the Feeder')
