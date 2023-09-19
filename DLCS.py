@@ -29,16 +29,33 @@ def on_name_selection_window_close(name_selection_window):
     set_combo_box_state(combo_box_state)  # Restore the previous state
     name_selection_window.destroy()  # Close the name selection window
 
-# Create a function to display names for logout in a new window
+# Create a global variable to keep track of the name selection window state
+name_selection_window_open = False
+name_selection_window = None  # Initialize name_selection_window
+
+# Create a function to display names for logout in a new window (as a modal dialog)
 def display_names_for_logout(selectedFeeder):
-    global combo_box_state  # Use the global variable
-    # Disable the "Select Feeder" combo box when this window is open
-    combo_box_state = cb1.cget("state")  # Save the current state
-    set_combo_box_state("disabled")  # Disable the combo box
+    global combo_box_state, name_selection_window_open, name_selection_window  # Use the global variables
+
+    # Check if the name selection window is already open
+    if name_selection_window_open:
+        custom_message_box("Window Open", "The name selection window is already open.", "info")
+        return
+
+    # Set the state to indicate that the window is open
+    name_selection_window_open = True
+
+    # Disable the "Contact Details" button
+    show_contact_button.config(state="disabled")
+    cb1.config(state="disabled")
 
     # Create a new window for name selection
     name_selection_window = tk.Toplevel(my_w)
     name_selection_window.title("Select Name for Logout")
+
+    # Set focus to the "Select Logout Users" window
+    name_selection_window.focus_set()
+    name_selection_window.grab_set()
 
     # Increase the size of the window
     window_width = 400
@@ -56,6 +73,19 @@ def display_names_for_logout(selectedFeeder):
     # Disable both minimize and maximize options
     name_selection_window.attributes("-toolwindow", 1)
 
+    def on_window_close():
+        # Callback function to run when the name selection window is closed
+        # Reset the state to indicate that the window is closed
+        global name_selection_window_open, name_selection_window  # Use the global variables
+        name_selection_window_open = False
+        # Re-enable the "Contact Details" button
+        show_contact_button.config(state="normal")
+        cb1.config(state="normal")
+        name_selection_window.destroy()
+        name_selection_window.grab_release()
+
+    name_selection_window.protocol("WM_DELETE_WINDOW", on_window_close)
+
     # Fetch names corresponding to the selected feeder number from the database
     query = "SELECT names FROM logindata WHERE feederno = ?"
     cur.execute(query, (selectedFeeder,))
@@ -70,7 +100,7 @@ def display_names_for_logout(selectedFeeder):
 
         # Create a combo box to display names
         selected_name = tk.StringVar(value='Select')
-        combo_box = ttk.Combobox(name_selection_window, textvariable=selected_name, values=names_list,state="readonly")
+        combo_box = ttk.Combobox(name_selection_window, textvariable=selected_name, values=names_list, state="readonly")
         combo_box.pack(padx=10, pady=10)
 
         def logout_selected_name():
@@ -85,18 +115,25 @@ def display_names_for_logout(selectedFeeder):
                 initialize_feeder_info_window(my_w)
                 custom_message_box("User Logout", f"{name_to_logout} has been logged out from {selectedFeeder}.", "green")
                 name_selection_window.destroy()
-                on_name_selection_window_close(name_selection_window)
-            else:
-                custom_message_box("No Name Selected", "Please select a name to log out.", "red")
+                cb1.config(state="normal")
+                show_contact_button.config(state="normal")
+        def close_select_logout_window():
+            name_selection_window.destroy()
+            cb1.config(state="normal")
+            show_contact_button.config(state="normal")
 
-        # Bind the window close event to re-enable the "Select Feeder" combo box
-        name_selection_window.protocol("WM_DELETE_WINDOW", lambda: on_name_selection_window_close(name_selection_window))
         # Create a submit button
         submit_button = ttk.Button(name_selection_window, text="Submit", command=logout_selected_name)
         submit_button.pack(padx=10, pady=10)
-
+        # Add a close button
+        close_button = tk.Button(name_selection_window, text="Close", command=close_select_logout_window)
+        close_button.pack()
+        name_selection_window.bind("<Return>", lambda event: name_selection_window.focus_get().invoke())
+        # Wait for the name selection window to be closed without grabbing focus
+        name_selection_window.wait_window(name_selection_window)
     else:
         custom_message_box("Feeder Not Found", f"Feeder {selectedFeeder} not found.", "red")
+
 
 def logout_user(feeder_no, user_to_logout):
         query = "SELECT names FROM logindata WHERE feederno = ?"
@@ -118,10 +155,67 @@ def logout_user(feeder_no, user_to_logout):
         else:
             custom_message_box("Feeder Not Found", f"Feeder {feeder_no} not found.", "red")
 
+def custom_askyesno(title, message, bg_color):
+    result = False  # Initialize the result as False
+    def on_yes():
+        nonlocal result
+        result = True
+        dialog.destroy()
+    def on_no():
+        nonlocal result
+        result = False
+        dialog.destroy()
+    dialog = tk.Toplevel()
+
+    # Create a custom title bar frame with a background
+    title_bar = tk.Frame(dialog, bg=bg_color, relief="raised", bd=1)
+    title_bar.pack(fill="x")
+    
+    # Create a label for the title within the custom title bar
+    title_label = ttk.Label(title_bar, text=title, font=("Times New Roman", 16, "bold"),  background=bg_color)
+    title_label.pack(side="left", padx=5)
+    dialog.configure(bg="white")
+
+    # Calculate screen width and height
+    screen_width = dialog.winfo_screenwidth()
+    screen_height = dialog.winfo_screenheight()
+    
+    # Calculate the window size and position it in the center
+    window_width = 500  # Adjust as needed
+    window_height = 180  # Adjust as needed
+    x_position = (screen_width - window_width) // 2
+    y_position = (screen_height - window_height) // 2
+    
+    # Set the window size and position
+    dialog.geometry(f"{window_width}x{window_height}+{x_position}+{y_position}")
+    dialog.resizable(False, False)
+    
+    # Remove the default title bar
+    dialog.overrideredirect(1)
+
+    message_label = ttk.Label(dialog, text=message, font=("Arial", 12, "bold"), wraplength=380, background="white")
+    message_label.pack(pady=20)
+
+    yes_button = ttk.Button(dialog, text="Yes", command=on_yes)
+    yes_button.pack(side="left", padx=10)
+
+    no_button = ttk.Button(dialog, text="No", command=on_no)
+    no_button.pack(side="right", padx=10)
+
+    yes_button.focus_set()
+
+    # Bind the Enter key to trigger the "Yes" and "No" button's action
+
+    dialog.bind("<Return>", lambda event: dialog.focus_get().invoke())
+    dialog.grab_set()  # Make the dialog modal
+    dialog.wait_window()  # Wait for the dialog to be closed
+
+    return result
+
 # Function to initialize the feeder info window
 def initialize_feeder_info_window(parent):
     feeder_info_frame = tk.Frame(parent, background="snow2")
-    feeder_info_frame.place(relx=0.69, rely=0.1, relwidth=0.3, relheight=0.22)
+    feeder_info_frame.place(relx=0.69, rely=0.1, relwidth=0.3, relheight=0.32)
     
     # Create label for Feeders Info Frame
     label = tk.Label(feeder_info_frame, text="STATUS OF THE FEEDERS", font=("Times New Roman", 14, "bold"), background="snow2")
@@ -272,6 +366,13 @@ def show_contact_details():
     close_button = ttk.Button(contact_details_window, text="Close", command=contact_details_window.destroy)
     close_button.pack()
 
+    # Set focus on the Close button
+    close_button.focus_set()
+
+    # Bind the Enter key event to the close button
+    contact_details_window.bind('<Return>', lambda event=None: close_button.invoke())
+
+
 # Build the Tkinter window
 my_w = tk.Tk()
 my_w.configure(bg="azure3")
@@ -339,6 +440,9 @@ feeder_label.grid(row=2, column=0, padx=20, pady=10, columnspan=2)
 cb1 = ttk.Combobox(my_w, values=displayfeeders, width=70, textvariable=sel,state="readonly")
 cb1.grid(row=3, column=0, padx=20, pady=30, columnspan=2)
 
+# Set the initial focus to the combobox
+cb1.focus_set()
+
 def custom_message_box(title, message, bg_color):
 
     custom_box = tk.Toplevel()
@@ -349,7 +453,7 @@ def custom_message_box(title, message, bg_color):
     # Remove the default title bar
     custom_box.overrideredirect(1)
     
-    # Create a custom title bar frame with a green background
+    # Create a custom title bar frame with a background
     title_bar = tk.Frame(custom_box, bg=bg_color, relief="raised", bd=1)
     title_bar.pack(fill="x")
     
@@ -377,6 +481,7 @@ def custom_message_box(title, message, bg_color):
     # Create an OK button
     ok_button = ttk.Button(custom_box, text="OK", command=custom_box.destroy)
     ok_button.pack()
+
     # Bind the Enter key to the OK button to activate it
     custom_box.bind("<Return>", lambda event=None: ok_button.invoke())
     # Set the focus to the OK button
@@ -487,18 +592,12 @@ def show_frames(label, selectedFeeder):
                                 custom_message_box("LOCK SUCCESS - MULTIPLE LOCKS FOUND", f" You have locked the feeder Successfully. {selectedFeeder} is now locked by multiple persons", "dark orange")
                                 # Stop the camera feed
                                 stop_camera()
-                                sel.set("Select the Feeder")
-                                submitbutton.config(state="disabled")
-                                for w in my_w.grid_slaves(row=5):
-                                    w.grid_remove() 
+
                             elif len(names)!=0 and qrName in names: 
                                 custom_message_box("FEEDER ALREADY LOCKED", f"{selectedFeeder} is already locked by you", "pale turquoise")
                                 # Stop the camera feed
                                 stop_camera()
-                                sel.set("Select the Feeder")
-                                submitbutton.config(state="disabled")
-                                for w in my_w.grid_slaves(row=5):
-                                    w.grid_remove() 
+
                             elif len(names) == 0:       
                                 # update data into the logindata table
                                 query = "UPDATE logindata SET names = ? WHERE feederno = ?"
@@ -509,11 +608,7 @@ def show_frames(label, selectedFeeder):
                                 custom_message_box("LOCK SUCCESS", f"The {selectedFeeder} has been successfully locked by {qrName}", "SpringGreen3")
                                 # Stop the camera feed
                                 stop_camera()
-                                # Set the combo box value back to default
-                                sel.set("Select the Feeder")
-                                submitbutton.config(state="disabled")
-                                for w in my_w.grid_slaves(row=5):
-                                  w.grid_remove()
+
                         else:
                             query = "INSERT INTO logindata (feederno, names) VALUES (?, ?)"
                             data = (selectedFeeder, qrName)
@@ -523,11 +618,7 @@ def show_frames(label, selectedFeeder):
                             custom_message_box("LOCK SUCCESS", f"The {selectedFeeder} has been successfully locked by {qrName}", "SpringGreen3")
                             # Stop the camera feed
                             stop_camera()
-                            # Set the combo box value back to default
-                            sel.set("Select the Feeder")
-                            submitbutton.config(state="disabled")
-                            for w in my_w.grid_slaves(row=5):
-                                w.grid_remove()
+
                     elif "OFF" in qr_data:
                         master_status = check_master_status(qrCPF)
                         if result is not None:
@@ -542,32 +633,25 @@ def show_frames(label, selectedFeeder):
                                 custom_message_box("UNLOCK SUCCESS", f"{selectedFeeder} has been unlocked by {qrName} successfully", "SpringGreen3")
                             elif master_status == "Y" and qrName not in names and len(names)!=0:
                                 # Master status is "Y", ask for confirmation before logging out all users
-                                confirmation = messagebox.askyesno("Master Logout Confirmation", "Are you sure you want to log out other users from the feeder?")
+                                confirmation = custom_askyesno("MASTER LOGOUT CONFIRMATION", f"{selectedFeeder} is not locked by you. Are you sure you want to log out other users using master privileges?","red")
                                 if(confirmation):
                                      #logout_all_users(selectedFeeder)
                                      display_names_for_logout(selectedFeeder)
                                      #custom_message_box("MASTER LOGOUT", "All users logged out from the feeder", "red")
                                 else:
                                 # User canceled the operation
-                                 custom_message_box("Operation Cancelled", "Master logout operation canceled", "green")
+                                 custom_message_box("Operation Cancelled", "Master logout operation canceled", "blue")
+                            elif qrName not in names and len(names)!=0:
+                                custom_message_box("FEEDER NOT LOCKED BY YOU", f"You are trying to unlock the {selectedFeeder} which is not locked by you", "pale turquoise")
                             else:
-                                custom_message_box("FEEDER CANNOT BE UNLOCKED", f"{selectedFeeder} is not locked by you", "pale turquoise")
-                        else:
-                             custom_message_box("FEEDER NOT LOCKED BY ANY ONE", f"{selectedFeeder} is not locked anyone. Close the Scanner", "orange red")
+                                custom_message_box("FEEDER NOT LOCKED BY ANY ONE", f"{selectedFeeder} is not locked by anyone. Close the Scanner", "orange red")
                         # Stop the camera feed
                         stop_camera()
-                        sel.set("Select the Feeder")
-                        submitbutton.config(state="disabled")
-                        for w in my_w.grid_slaves(row=5):
-                            w.grid_remove()
                 else:
                     custom_message_box("UNAUTHORISED QR CODE DETECTED", "Unauthorised access detected. Close the Scanner", "orange red")
                     # Stop the camera feed
                     stop_camera()
-                    sel.set("Select the Feeder")
-                    submitbutton.config(state="disabled")
-                    for w in my_w.grid_slaves(row=5):
-                        w.grid_remove()
+
         # Convert the OpenCV frame to a Tkinter-compatible image
         img = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         img = Image.fromarray(img)
@@ -587,6 +671,8 @@ def show_frames(label, selectedFeeder):
             camera_running = True
             submitbutton.config(state="disabled")  # Disable the button when the camera starts
             detect_and_display_qr_codes()
+             # Start a timer to close the camera feed window after 30 seconds
+            #label.after(10000, stop_camera)  # 30,000 milliseconds (30 seconds)
 
     def stop_camera():
         global camera_running, cap
@@ -595,9 +681,22 @@ def show_frames(label, selectedFeeder):
             cap.release()
             label.imgtk = None
             label.configure(image=None)
+            sel.set("Select the Feeder") # Set the combo box value back to default
+            submitbutton.config(state="disabled")
+            cb1.focus_set()
+            for w in my_w.grid_slaves(row=5):  # all elements in row 5
+             w.grid_remove()  # delete elements
 
     # Start the camera when the frame is shown
     start_camera()
+# Function to handle key events
+def handle_key_event(event):
+    if event.keysym == 'Escape':  # Check if the "Escape" key is pressed
+        stop_camera()  # Stop the camera feed
+        sel.set("Select the Feeder") # Set the combo box value back to default
+        submitbutton.config(state="disabled")
+        for w in my_w.grid_slaves(row=5):  # all elements in row 5
+            w.grid_remove()  # delete elements
 
 # Function to handle the "SUBMIT" button click
 def submit(selectedFeeder):
@@ -612,5 +711,7 @@ submitbutton.grid(row=4, column=0, padx=20, pady=10, columnspan=2)
 my_w.bind("<Return>", lambda event=None: submitbutton.invoke())
 
 initialize_feeder_info_window(my_w)
+# Bind the key event handler to the main window
+my_w.bind('<Key>', handle_key_event)
 
 my_w.mainloop()
