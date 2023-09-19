@@ -232,10 +232,10 @@ def custom_askyesno(title, message, bg_color):
 # Function to initialize the feeder info window
 def initialize_feeder_info_window(parent):
     feeder_info_frame = tk.Frame(parent, background="snow2")
-    feeder_info_frame.place(relx=0.69, rely=0.1, relwidth=0.3, relheight=0.32)
-    
+    feeder_info_frame.place(relx=0.64, rely=0.08, relwidth=0.35, relheight=0.28)
+
     # Create label for Feeders Info Frame
-    label = tk.Label(feeder_info_frame, text="STATUS OF THE FEEDERS", font=("Times New Roman", 14, "bold"), background="snow2")
+    label = tk.Label(feeder_info_frame, text="STATUS OF THE FEEDERS", font=("Arial", 14, "bold"), background="snow2",foreground="blue")
     label.pack()
 
     # Create a horizontal scrollbar for the treeview
@@ -247,14 +247,24 @@ def initialize_feeder_info_window(parent):
     y_scrollbar.pack(side="right", fill="y")
     
     header_style = ttk.Style()
-    header_style.configure("Treeview.Heading", font=("Times New Roman", 13, "bold"))
+    header_style.configure("Treeview.Heading", font=("Arial", 11, "bold"))
     
-    tree = ttk.Treeview(feeder_info_frame, columns=("Feeder No", "Locked By"), show="headings", xscrollcommand=h_scrollbar.set, yscrollcommand=y_scrollbar.set)
+    tree = ttk.Treeview(feeder_info_frame, columns=("FEEDER NO : ", "LINE CLEARANCE STATUS"), show="headings", xscrollcommand=h_scrollbar.set, yscrollcommand=y_scrollbar.set)
     
+    # Disable selection
+    tree.selection_set(())
+    tree.bind("<ButtonRelease-1>", lambda event: tree.selection_set(()))
+
     tree.tag_configure("bold", font=("Arial", 10, "bold"))
    
-    tree.heading("Feeder No", text="Feeder No", anchor="w")
-    tree.heading("Locked By", text="Locked By", anchor="w")
+    tree.heading("FEEDER NO : ", text="FEEDER NO : ", anchor="w")
+    tree.heading("LINE CLEARANCE STATUS", text="LINE CLEARANCE STATUS", anchor="w")
+
+    # Set the "Feeder No" column width as a percentage of the total frame width
+    tree.column("FEEDER NO : ", width=int(feeder_info_frame.winfo_width() * 0.2))  # Adjust 0.2 as needed
+
+    # Set the "Line Clearance Issued" column width as a percentage of the total frame width
+    tree.column("LINE CLEARANCE STATUS", width=int(feeder_info_frame.winfo_width() * 0.6))  # Adjust 0.6 as needed
 
 
     h_scrollbar.config(command=tree.xview)  # Connect horizontal scrollbar to treeview
@@ -333,27 +343,27 @@ def initialize_feeder_info_window(parent):
             print("pin-8 status set low") """
 
         if locked_names:
-            names_list = locked_names.split(',')
+           names_list = locked_names.split(',')
+           first_name = names_list[0]
+           other_names = ', '.join(names_list[1:])
+           names_display = f"LC issued for :: {first_name}, {other_names}" if other_names else f"LC issued for :: {first_name}"
+           bg_color = "spring green"
         else:
-            names_list = []
-        names_display = ', '.join(names_list)
-        
-        # Determine the background color based on whether "names" is empty or not
-        if names_display:
-            bg_color = "sienna1"
-        else:
-            bg_color = "spring green"
+           names_list = []
+           names_display = "LC not issued for this feeder"  # Set the default text
+           bg_color = "sienna1"
         
         # Insert the row with the specified background color
         tree.insert("", "end", values=(feeder_no, names_display), iid=feeder_no, tags=("bg_color_" + bg_color,"bold"))
         tree.tag_configure("bg_color_" + bg_color, background=bg_color)
+    
         
     # Calculate the maximum width needed for the "Locked By" column
     max_locked_by_width = max([len(name) for name in names_list], default=350)
     print(max_locked_by_width)
     # Set the "Locked By" column width with some padding
-    tree.column("Feeder No", width=100)
-    tree.column("Locked By", width=max_locked_by_width * 2)  # Adjust the multiplier as needed multiplier as needed
+    tree.column("FEEDER NO : ", width=100)
+    tree.column("LINE CLEARANCE STATUS", width=max_locked_by_width * 2)  # Adjust the multiplier as needed multiplier as needed
     tree.pack()
 
 def show_contact_details():
@@ -460,8 +470,8 @@ feeder_label = ttk.Label(my_w, text="FEEDER NUMBER",
                          font=("Times New Roman", 15, 'bold'))
 feeder_label.grid(row=2, column=0, padx=20, pady=10, columnspan=2)
 
-cb1 = ttk.Combobox(my_w, values=displayfeeders, width=70, textvariable=sel,state="readonly")
-cb1.grid(row=3, column=0, padx=20, pady=30, columnspan=2)
+cb1 = ttk.Combobox(my_w, values=displayfeeders, width=20, textvariable=sel,state="readonly")
+cb1.grid(row=3, column=0, padx=10, pady=20, columnspan=2)
 
 # Set the initial focus to the combobox
 cb1.focus_set()
