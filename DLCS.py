@@ -7,9 +7,19 @@ import numpy as np
 from pyzbar.pyzbar import decode
 import tkinter.messagebox as messagebox
 #import RPi.GPIO as GPIO
+import os
+
+# Check if the lock file exists
+lock_file = "app_lock.lock"
+if os.path.isfile(lock_file):
+    messagebox.showerror("Error", "Another instance of the application is already running.")
+    exit()
+# Create the lock file
+open(lock_file, 'w').close()
 
 # Establish SQLITE Database Connection (If using SQLite3 -- Comment other connection modes if using SQLite)
-conn = sqlite3.connect('ilcst.db')
+db_file = r"C:\DLCS\ilcst.db"
+conn = sqlite3.connect(db_file)
 cur = conn.cursor()
 
 # Function to stop the camera feed
@@ -32,6 +42,13 @@ def on_name_selection_window_close(name_selection_window):
 # Create a global variable to keep track of the name selection window state
 name_selection_window_open = False
 name_selection_window = None  # Initialize name_selection_window
+
+# Function to release the lock file when the application is closed
+def on_main_window_close():
+    # Delete the lock file
+    if os.path.isfile(lock_file):
+        os.remove(lock_file)
+    my_w.destroy()
 
 # Create a function to display names for logout in a new window (as a modal dialog)
 def display_names_for_logout(selectedFeeder):
@@ -263,7 +280,7 @@ def initialize_feeder_info_window(parent):
     GPIO.setup(pin5, GPIO.OUT)
     GPIO.setup(pin6, GPIO.OUT)
     GPIO.setup(pin7, GPIO.OUT)
-    GPIO.setup(pin8, GPIO.OUT)"""
+    GPIO.setup(pin8, GPIO.OUT)
 
     var1 = 0
     var2 = 0
@@ -273,8 +290,7 @@ def initialize_feeder_info_window(parent):
     var6 = 0
     var7 = 0
     var8 = 0
-    var9 = 0
-    var10 = 0
+ """
 
     for row in rows:
         # Use feeder Number and Status to activate the SBC pins based on user interaction with the GUI
@@ -376,6 +392,11 @@ def show_contact_details():
 # Build the Tkinter window
 my_w = tk.Tk()
 my_w.configure(bg="azure3")
+my_w.resizable(False, False)
+# Remove the default title bar
+# Disable both minimize and maximize options
+#my_w.attributes("-toolwindow", 1)
+
 
 # Create a "Show Contact Details" button
 show_contact_button = ttk.Button(my_w, text="Contacts Directory", command=show_contact_details)
@@ -394,6 +415,8 @@ y_position = (screen_height - window_height) // 2
 # Set the window size and position
 my_w.geometry(f"{window_width}x{window_height}+{x_position}+{y_position}")
 my_w.title("DIGITALIZED LC SYSTEM")
+
+my_w.protocol("WM_DELETE_WINDOW", on_main_window_close)
 
 # Reduce the vertical spacing between rows
 row_padding = (5, 0)
@@ -642,9 +665,9 @@ def show_frames(label, selectedFeeder):
                                 # User canceled the operation
                                  custom_message_box("Operation Cancelled", "Master logout operation canceled", "blue")
                             elif qrName not in names and len(names)!=0:
-                                custom_message_box("FEEDER NOT LOCKED BY YOU", f"You are trying to unlock the {selectedFeeder} which is not locked by you", "pale turquoise")
+                                custom_message_box("FEEDER NOT LOCKED BY YOU", f"You are trying to unlock the {selectedFeeder} which is not locked by you", "red")
                             else:
-                                custom_message_box("FEEDER NOT LOCKED BY ANY ONE", f"{selectedFeeder} is not locked by anyone. Close the Scanner", "orange red")
+                                custom_message_box("FEEDER NOT LOCKED BY ANY ONE", f"{selectedFeeder} is not locked by anyone. Close the Scanner", "pale turquoise")
                         # Stop the camera feed
                         stop_camera()
                 else:
