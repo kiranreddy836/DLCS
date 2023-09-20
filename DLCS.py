@@ -17,16 +17,61 @@ if os.path.isfile(lock_file):
 # Create the lock file
 open(lock_file, 'w').close()
 
-def display_logo_and_title(root):
+def display_sidebar(root):
+    # Sidebar Frame
+    sidebar_frame = tk.Frame(root, width=400, bg="RoyalBlue2")
+    sidebar_frame.grid(row=1, column=0, sticky="w")
+
+    # Add links (buttons) to the sidebar
+    link1 = ttk.Button(sidebar_frame, text="Contact Details", command=show_contact_details)
+    link1.grid(row=0, column=0, sticky="ew", padx=10, pady=5)
+
+    link2 = ttk.Button(sidebar_frame, text="Link 2", command=lambda: link_click("Link 2"))
+    link2.grid(row=1, column=0, sticky="ew", padx=10, pady=5)
+
+    link3 = ttk.Button(sidebar_frame, text="Link 3", command=lambda: link_click("Link 3"))
+    link3.grid(row=2, column=0, sticky="ew", padx=10, pady=5)
+
+    # Configure row weight to make the sidebar frame expand vertically
+    root.grid_rowconfigure(1, weight=1)
+
+    return sidebar_frame
+
+def link_click(link_text):
+    # Define actions for each link here
+    if link_text == "Link 1":
+        # Perform an action when Link 1 is clicked
+        messagebox.showinfo("Link 1 Clicked", "You clicked Link 1")
+    elif link_text == "Link 2":
+        # Perform an action when Link 2 is clicked
+        messagebox.showinfo("Link 2 Clicked", "You clicked Link 2")
+    elif link_text == "Link 3":
+        # Perform an action when Link 3 is clicked
+        messagebox.showinfo("Link 3 Clicked", "You clicked Link 3")
+
+def display_header(root):
+    # Header Frame
+    header_frame = tk.Frame(root, bg="RoyalBlue4", pady=10)
+    header_frame.grid(row=0, column=0, columnspan=2, sticky="nsew")
+
+    # NLC Logo
     try:
-        logo_image = Image.open(r"C:\Users\KIRAN_MANVI_CHERRY\Desktop\nlclogo.png") 
+        logo_image = Image.open(r"C:\Users\KIRAN_MANVI_CHERRY\Desktop\nlclogo.png")
         logo_image = logo_image.resize((100, 100))
         logo_photo = ImageTk.PhotoImage(logo_image)
         root.logo_photo = logo_photo  # Store the PhotoImage as an attribute of the root window
-        logo_label = tk.Label(root, image=logo_photo)
-        logo_label.grid(row=0, column=0, padx=10, pady=10, sticky="w")
+        logo_label = tk.Label(header_frame, image=logo_photo)
+        logo_label.grid(row=0, column=0, padx=0, pady=0, sticky="w")
     except FileNotFoundError:
         print("Logo image not found. Make sure the image file exists.")
+
+    # Title
+    title_label = ttk.Label(header_frame, text="DIGITALIZED LINE CLEARANCE SYSTEM", font=("Times New Roman", 25, 'bold'), background="RoyalBlue4",foreground="white")
+    title_label.place(relx=0.5, rely=0.5, anchor="center")
+
+    # Contact Details Button
+    contact_button = ttk.Button(header_frame, text="Contact Us", command=show_contact_details)
+    contact_button.place(relx=0.99, rely=0.4, anchor="ne")  # Top right corner
 
 # Establish SQLITE Database Connection (If using SQLite3 -- Comment other connection modes if using SQLite)
 db_file = r"C:\DLCS\ilcst.db"
@@ -243,10 +288,10 @@ def custom_askyesno(title, message, bg_color):
 # Function to initialize the feeder info window
 def initialize_feeder_info_window(parent):
     feeder_info_frame = tk.Frame(parent, background="snow2")
-    feeder_info_frame.place(relx=0.64, rely=0.11, relwidth=0.35, relheight=0.28)
+    feeder_info_frame.place(relx=0.65, rely=0.2, relwidth=0.33, relheight=0.25)
 
     # Create label for Feeders Info Frame
-    label = tk.Label(feeder_info_frame, text="STATUS OF THE FEEDERS", font=("Arial", 14, "bold"), background="snow2",foreground="blue")
+    label = tk.Label(feeder_info_frame, text="STATUS OF THE FEEDERS", font=("Times New Roman", 15, "bold"), background="snow2",foreground="red4")
     label.pack()
 
     # Create a horizontal scrollbar for the treeview
@@ -417,12 +462,10 @@ my_w.resizable(False, False)
 # Remove the default title bar
 # Disable both minimize and maximize options
 #my_w.attributes("-toolwindow", 1)
-display_logo_and_title(my_w)
+#display_logo_and_title(my_w)
 
 # Create a "Show Contact Details" button
 show_contact_button = ttk.Button(my_w, text="Contacts Directory", command=show_contact_details)
-#show_contact_button.place(x=10, y=10)  # Adjust the coordinates as needed
-show_contact_button.grid(row=0, column=0, padx=50, pady=15, sticky="e")
 
 # Get screen width and height
 screen_width = my_w.winfo_screenwidth()
@@ -437,7 +480,8 @@ y_position = (screen_height - window_height) // 2
 # Set the window size and position
 my_w.geometry(f"{window_width}x{window_height}+{x_position}+{y_position}")
 my_w.title("DIGITALIZED LC SYSTEM")
-
+display_header(my_w)
+display_sidebar(my_w)
 my_w.protocol("WM_DELETE_WINDOW", on_main_window_close)
 
 # Reduce the vertical spacing between rows
@@ -452,11 +496,11 @@ my_w.rowconfigure(3, weight=0)  # Reduce weight for combo box row
 my_w.rowconfigure(4, weight=0)  # Reduce weight for submit button row
 my_w.rowconfigure(5, weight=0)  # Reduce weight for frames row
 
-# label text for title
+"""# label text for title
 title_label = ttk.Label(my_w, text="DIGITALIZED LINE CLEARANCE SYSTEM",
                         background='azure3', foreground="midnight blue", anchor="center",
                         font=("Times New Roman", 25, 'bold'))
-title_label.grid(row=0, column=0, padx=100, pady=row_padding, columnspan=2)
+title_label.grid(row=0, column=0, padx=100, pady=row_padding, columnspan=2)"""
 
 # label text for unit selection
 unit_label = ttk.Label(my_w, text="MINE-1A SUBSTATION",
@@ -482,7 +526,7 @@ feeder_label = ttk.Label(my_w, text="FEEDER NUMBER",
                          font=("Times New Roman", 15, 'bold'))
 feeder_label.grid(row=2, column=0, padx=20, pady=10, columnspan=2)
 
-cb1 = ttk.Combobox(my_w, values=displayfeeders, width=20, textvariable=sel,state="readonly")
+cb1 = ttk.Combobox(my_w, values=displayfeeders, width=60, textvariable=sel,state="readonly")
 cb1.grid(row=3, column=0, padx=10, pady=20, columnspan=2)
 
 # Set the initial focus to the combobox
@@ -760,3 +804,4 @@ initialize_feeder_info_window(my_w)
 my_w.bind('<Key>', handle_key_event)
 
 my_w.mainloop()
+
