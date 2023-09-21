@@ -57,7 +57,7 @@ def display_header(root):
     # NLC Logo
     try:
         logo_image = Image.open(r"C:\Users\KIRAN_MANVI_CHERRY\Desktop\nlclogo.png")
-        logo_image = logo_image.resize((100, 100))
+        logo_image = logo_image.resize((105, 100))
         logo_photo = ImageTk.PhotoImage(logo_image)
         root.logo_photo = logo_photo  # Store the PhotoImage as an attribute of the root window
         logo_label = tk.Label(header_frame, image=logo_photo)
@@ -67,7 +67,7 @@ def display_header(root):
 
     # Title
     title_label = ttk.Label(header_frame, text="DIGITALIZED LINE CLEARANCE SYSTEM", font=("Times New Roman", 25, 'bold'), background="RoyalBlue4",foreground="white")
-    title_label.place(relx=0.5, rely=0.5, anchor="center")
+    title_label.place(relx=0.5, rely=0.4, anchor="center")
 
     # Contact Details Button
     contact_button = ttk.Button(header_frame, text="Contact Us", command=show_contact_details)
@@ -504,9 +504,9 @@ title_label.grid(row=0, column=0, padx=100, pady=row_padding, columnspan=2)"""
 
 # label text for unit selection
 unit_label = ttk.Label(my_w, text="MINE-1A SUBSTATION",
-                       background='azure3', foreground="midnight blue",
+                       background='blue', foreground="white",
                        font=("Times New Roman", 20, 'bold'))
-unit_label.grid(row=1, column=0, padx=20, pady=10, columnspan=2)
+unit_label.grid(row=1, column=0, padx=20, pady=0, columnspan=2)
 
 # String for handling transitions
 sel = tk.StringVar(value='Select the Feeder')
@@ -524,9 +524,9 @@ for i in range(feederCount):
 feeder_label = ttk.Label(my_w, text="FEEDER NUMBER",
                          background='burlywood1', foreground="black",
                          font=("Times New Roman", 15, 'bold'))
-feeder_label.grid(row=2, column=0, padx=20, pady=10, columnspan=2)
+feeder_label.grid(row=2, column=0, padx=20, pady=0, columnspan=2)
 
-cb1 = ttk.Combobox(my_w, values=displayfeeders, width=60, textvariable=sel,state="readonly")
+cb1 = ttk.Combobox(my_w, values=displayfeeders, width=40, textvariable=sel,state="readonly")
 cb1.grid(row=3, column=0, padx=10, pady=20, columnspan=2)
 
 # Set the initial focus to the combobox
