@@ -8,6 +8,7 @@ from pyzbar.pyzbar import decode
 import tkinter.messagebox as messagebox
 #import RPi.GPIO as GPIO
 import os
+import tkinter.font as tkFont
 
 # Check if the lock file exists
 lock_file = "app_lock.lock"
@@ -16,38 +17,6 @@ if os.path.isfile(lock_file):
     exit()
 # Create the lock file
 open(lock_file, 'w').close()
-
-def display_sidebar(root):
-    # Sidebar Frame
-    sidebar_frame = tk.Frame(root, width=400, bg="RoyalBlue2")
-    sidebar_frame.grid(row=1, column=0, sticky="w")
-
-    # Add links (buttons) to the sidebar
-    link1 = ttk.Button(sidebar_frame, text="Contact Details", command=show_contact_details)
-    link1.grid(row=0, column=0, sticky="ew", padx=10, pady=5)
-
-    link2 = ttk.Button(sidebar_frame, text="Link 2", command=lambda: link_click("Link 2"))
-    link2.grid(row=1, column=0, sticky="ew", padx=10, pady=5)
-
-    link3 = ttk.Button(sidebar_frame, text="Link 3", command=lambda: link_click("Link 3"))
-    link3.grid(row=2, column=0, sticky="ew", padx=10, pady=5)
-
-    # Configure row weight to make the sidebar frame expand vertically
-    root.grid_rowconfigure(1, weight=1)
-
-    return sidebar_frame
-
-def link_click(link_text):
-    # Define actions for each link here
-    if link_text == "Link 1":
-        # Perform an action when Link 1 is clicked
-        messagebox.showinfo("Link 1 Clicked", "You clicked Link 1")
-    elif link_text == "Link 2":
-        # Perform an action when Link 2 is clicked
-        messagebox.showinfo("Link 2 Clicked", "You clicked Link 2")
-    elif link_text == "Link 3":
-        # Perform an action when Link 3 is clicked
-        messagebox.showinfo("Link 3 Clicked", "You clicked Link 3")
 
 def display_header(root):
     # Header Frame
@@ -68,10 +37,11 @@ def display_header(root):
     # Title
     title_label = ttk.Label(header_frame, text="DIGITALIZED LINE CLEARANCE SYSTEM", font=("Times New Roman", 25, 'bold'), background="RoyalBlue4",foreground="white")
     title_label.place(relx=0.5, rely=0.4, anchor="center")
-
-    # Contact Details Button
-    contact_button = ttk.Button(header_frame, text="Contact Us", command=show_contact_details)
-    contact_button.place(relx=0.99, rely=0.4, anchor="ne")  # Top right corner
+    # label text for unit selection
+    unit_label = ttk.Label(header_frame, text="MINE-1A SUBSTATION",
+                       background='blue', foreground="white",
+                       font=("Times New Roman", 16, 'bold'))
+    unit_label.place(relx=0.5, rely=0.8, anchor="center")
 
 # Establish SQLITE Database Connection (If using SQLite3 -- Comment other connection modes if using SQLite)
 db_file = r"C:\DLCS\ilcst.db"
@@ -96,7 +66,7 @@ def on_name_selection_window_close(name_selection_window):
     name_selection_window.destroy()  # Close the name selection window
 
 # Create a global variable to keep track of the name selection window state
-name_selection_window_open = False
+#name_selection_window_open = False
 name_selection_window = None  # Initialize name_selection_window
 
 # Function to release the lock file when the application is closed
@@ -108,18 +78,8 @@ def on_main_window_close():
 
 # Create a function to display names for logout in a new window (as a modal dialog)
 def display_names_for_logout(selectedFeeder):
-    global combo_box_state, name_selection_window_open, name_selection_window  # Use the global variables
+    global combo_box_state, name_selection_window  # Use the global variables
 
-    # Check if the name selection window is already open
-    if name_selection_window_open:
-        custom_message_box("Window Open", "The name selection window is already open.", "info")
-        return
-
-    # Set the state to indicate that the window is open
-    name_selection_window_open = True
-
-    # Disable the "Contact Details" button
-    show_contact_button.config(state="disabled")
     cb1.config(state="disabled")
 
     # Create a new window for name selection
@@ -144,15 +104,12 @@ def display_names_for_logout(selectedFeeder):
     name_selection_window.geometry(f"{window_width}x{window_height}+{x_position}+{y_position}")
 
     # Disable both minimize and maximize options
-    name_selection_window.attributes("-toolwindow", 1)
+    name_selection_window.grab_set()
 
     def on_window_close():
         # Callback function to run when the name selection window is closed
         # Reset the state to indicate that the window is closed
-        global name_selection_window_open, name_selection_window  # Use the global variables
-        name_selection_window_open = False
-        # Re-enable the "Contact Details" button
-        show_contact_button.config(state="normal")
+        global name_selection_window  # Use the global variables
         cb1.config(state="normal")
         name_selection_window.destroy()
         name_selection_window.grab_release()
@@ -189,11 +146,10 @@ def display_names_for_logout(selectedFeeder):
                 custom_message_box("User Logout", f"{name_to_logout} has been logged out from {selectedFeeder}.", "green")
                 name_selection_window.destroy()
                 cb1.config(state="normal")
-                show_contact_button.config(state="normal")
+
         def close_select_logout_window():
             name_selection_window.destroy()
             cb1.config(state="normal")
-            show_contact_button.config(state="normal")
 
         # Create a submit button
         submit_button = ttk.Button(name_selection_window, text="Submit", command=logout_selected_name)
@@ -422,50 +378,17 @@ def initialize_feeder_info_window(parent):
     tree.column("LINE CLEARANCE STATUS", width=max_locked_by_width * 2)  # Adjust the multiplier as needed multiplier as needed
     tree.pack()
 
-def show_contact_details():
-    contact_details_window = tk.Toplevel(my_w)
-    contact_details_window.title("Contact Details")
-        # Disable both minimize and maximize options
-    contact_details_window.attributes("-toolwindow", 1)
-
-    # Create a Treeview widget to display the contact details
-    contact_tree = ttk.Treeview(contact_details_window, columns=("Name","Cpf Number","Phone Number") , show="headings")
-    contact_tree.heading("Name", text="Name", anchor=tk.W)
-    contact_tree.heading("Cpf Number", text="Cpf Number",anchor=tk.W)
-    contact_tree.heading("Phone Number", text="Phone Number",anchor=tk.W)
-    contact_tree.pack()
-
-    # Fetch and display contact details from the 'users' table
-    query = "SELECT name,cpf_no,phone_no FROM users"
-    cur.execute(query)
-    rows = cur.fetchall()
-
-    for row in rows:
-        name, cpf_no, phone_number = row
-        contact_tree.insert("", "end", values=(name, cpf_no, phone_number))
-
-    # Close button
-    close_button = ttk.Button(contact_details_window, text="Close", command=contact_details_window.destroy)
-    close_button.pack()
-
-    # Set focus on the Close button
-    close_button.focus_set()
-
-    # Bind the Enter key event to the close button
-    contact_details_window.bind('<Return>', lambda event=None: close_button.invoke())
-
+def extract_cpf_no(name):
+    # Extract the cpf_no from the name in the format "KIRAN_48979"
+    parts = name.split('_')
+    if len(parts) == 2:
+        return parts[1]
+    return None
 
 # Build the Tkinter window
 my_w = tk.Tk()
 my_w.configure(bg="azure3")
 my_w.resizable(False, False)
-# Remove the default title bar
-# Disable both minimize and maximize options
-#my_w.attributes("-toolwindow", 1)
-#display_logo_and_title(my_w)
-
-# Create a "Show Contact Details" button
-show_contact_button = ttk.Button(my_w, text="Contacts Directory", command=show_contact_details)
 
 # Get screen width and height
 screen_width = my_w.winfo_screenwidth()
@@ -481,11 +404,10 @@ y_position = (screen_height - window_height) // 2
 my_w.geometry(f"{window_width}x{window_height}+{x_position}+{y_position}")
 my_w.title("DIGITALIZED LC SYSTEM")
 display_header(my_w)
-display_sidebar(my_w)
 my_w.protocol("WM_DELETE_WINDOW", on_main_window_close)
 
 # Reduce the vertical spacing between rows
-row_padding = (5, 0)
+row_padding = (3, 0)
 
 # Configure grid weights for responsive layout
 my_w.columnconfigure(0, weight=1)
@@ -495,18 +417,6 @@ my_w.rowconfigure(2, weight=0)  # Reduce weight for feeder label row
 my_w.rowconfigure(3, weight=0)  # Reduce weight for combo box row
 my_w.rowconfigure(4, weight=0)  # Reduce weight for submit button row
 my_w.rowconfigure(5, weight=0)  # Reduce weight for frames row
-
-"""# label text for title
-title_label = ttk.Label(my_w, text="DIGITALIZED LINE CLEARANCE SYSTEM",
-                        background='azure3', foreground="midnight blue", anchor="center",
-                        font=("Times New Roman", 25, 'bold'))
-title_label.grid(row=0, column=0, padx=100, pady=row_padding, columnspan=2)"""
-
-# label text for unit selection
-unit_label = ttk.Label(my_w, text="MINE-1A SUBSTATION",
-                       background='blue', foreground="white",
-                       font=("Times New Roman", 20, 'bold'))
-unit_label.grid(row=1, column=0, padx=20, pady=0, columnspan=2)
 
 # String for handling transitions
 sel = tk.StringVar(value='Select the Feeder')
@@ -524,10 +434,47 @@ for i in range(feederCount):
 feeder_label = ttk.Label(my_w, text="FEEDER NUMBER",
                          background='burlywood1', foreground="black",
                          font=("Times New Roman", 15, 'bold'))
-feeder_label.grid(row=2, column=0, padx=20, pady=0, columnspan=2)
+feeder_label.grid(row=1, column=0, padx=20, pady=15)
+#feeder_label.place()
 
-cb1 = ttk.Combobox(my_w, values=displayfeeders, width=40, textvariable=sel,state="readonly")
-cb1.grid(row=3, column=0, padx=10, pady=20, columnspan=2)
+cb1 = ttk.Combobox(my_w, values=displayfeeders, width=50, textvariable=sel,state="readonly")
+cb1.grid(row=2, column=0, padx=10, pady=10)
+
+# Create the input field for CPF
+def display_cpf_details():
+    cpf_no = cpf_entry.get()
+    # Query the database for user details with the matching CPF
+    cur.execute("SELECT cpf_no, name, phone_no FROM users WHERE cpf_no = ?", (cpf_no,))
+    user_details = cur.fetchone()  # Assuming there's only one user with the same CPF
+    # Clear the label text
+    details_label.config(text="")
+
+    if user_details:
+        custom_font = ("Arial", 12)
+        # Update the label to display user details
+        details_label.config(text=f"CPF Number:- {user_details[0]}\nName:- {user_details[1]}\nPhone Number:- {user_details[2]}", font=custom_font)
+    else:
+        details_label.config(text="User not found")
+
+# ... (your existing code)
+
+cpf_info_frame = tk.Frame(my_w, background="snow2")
+cpf_info_frame.place(relx=0.01, rely=0.12, relwidth=0.2, relheight=0.08)
+ # Create label for Feeders Info Frame
+label = tk.Label(cpf_info_frame, text="GET CONTACT DETAILS", font=("Times New Roman", 15, "bold"),foreground="red4")
+label.pack()
+cpf_label = tk.Label(cpf_info_frame, text="Enter CPF Number:", font=("Times New Roman", 15, "bold"), background="snow2", foreground="red4")
+cpf_label.pack(side="left", padx=10, pady=10)
+
+cpf_entry = ttk.Entry(cpf_info_frame)
+cpf_entry.pack(side="left", padx=10, pady=10)
+
+cpf_submit_button = ttk.Button(cpf_info_frame, text="Submit CPF", command=display_cpf_details)
+cpf_submit_button.pack(side="left", padx=10, pady=10)
+
+# Create a label for displaying user details
+details_label = tk.Label(my_w, text="", font=("Arial", 12), background="snow2")
+details_label.place(relx=0.01, rely=0.19, relwidth=0.2, relheight=0.08)
 
 # Set the initial focus to the combobox
 cb1.focus_set()
