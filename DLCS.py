@@ -456,8 +456,6 @@ def display_cpf_details():
     else:
         details_label.config(text="User not found")
 
-# ... (your existing code)
-
 cpf_info_frame = tk.Frame(my_w, background="snow2")
 cpf_info_frame.place(relx=0.01, rely=0.12, relwidth=0.2, relheight=0.08)
  # Create label for Feeders Info Frame
