@@ -22,7 +22,6 @@ def display_header(root):
     # Header Frame
     header_frame = tk.Frame(root, bg="RoyalBlue4", pady=10)
     header_frame.grid(row=0, column=0, columnspan=2, sticky="nsew")
-
     # NLC Logo
     try:
         logo_image = Image.open(r"C:\Users\KIRAN_MANVI_CHERRY\Desktop\nlclogo.png")
@@ -37,10 +36,11 @@ def display_header(root):
     # Title
     title_label = ttk.Label(header_frame, text="DIGITALIZED LINE CLEARANCE SYSTEM", font=("Times New Roman", 25, 'bold'), background="RoyalBlue4",foreground="white")
     title_label.place(relx=0.5, rely=0.4, anchor="center")
+
     # label text for unit selection
     unit_label = ttk.Label(header_frame, text="MINE-1A SUBSTATION",
-                       background='blue', foreground="white",
-                       font=("Times New Roman", 16, 'bold'))
+                       background='RoyalBlue4', foreground="white",
+                       font=("Times New Roman", 17, 'bold'))
     unit_label.place(relx=0.5, rely=0.8, anchor="center")
 
 # Establish SQLITE Database Connection (If using SQLite3 -- Comment other connection modes if using SQLite)
@@ -66,7 +66,6 @@ def on_name_selection_window_close(name_selection_window):
     name_selection_window.destroy()  # Close the name selection window
 
 # Create a global variable to keep track of the name selection window state
-#name_selection_window_open = False
 name_selection_window = None  # Initialize name_selection_window
 
 # Function to release the lock file when the application is closed
@@ -244,7 +243,7 @@ def custom_askyesno(title, message, bg_color):
 # Function to initialize the feeder info window
 def initialize_feeder_info_window(parent):
     feeder_info_frame = tk.Frame(parent, background="snow2")
-    feeder_info_frame.place(relx=0.65, rely=0.2, relwidth=0.33, relheight=0.25)
+    feeder_info_frame.place(relx=0.65, rely=0.18, relwidth=0.33, relheight=0.25)
 
     # Create label for Feeders Info Frame
     label = tk.Label(feeder_info_frame, text="STATUS OF THE FEEDERS", font=("Times New Roman", 15, "bold"), background="snow2",foreground="red4")
@@ -313,7 +312,6 @@ def initialize_feeder_info_window(parent):
     var7 = 0
     var8 = 0
  """
-
     for row in rows:
         # Use feeder Number and Status to activate the SBC pins based on user interaction with the GUI
         feeder_no = row[0]
@@ -369,7 +367,6 @@ def initialize_feeder_info_window(parent):
         tree.insert("", "end", values=(feeder_no, names_display), iid=feeder_no, tags=("bg_color_" + bg_color,"bold"))
         tree.tag_configure("bg_color_" + bg_color, background=bg_color)
     
-        
     # Calculate the maximum width needed for the "Locked By" column
     max_locked_by_width = max([len(name) for name in names_list], default=350)
     print(max_locked_by_width)
@@ -450,16 +447,16 @@ def display_cpf_details():
     details_label.config(text="")
 
     if user_details:
-        custom_font = ("Arial", 12)
+        custom_font = ("Times New Roman", 11,"bold")
         # Update the label to display user details
         details_label.config(text=f"CPF Number:- {user_details[0]}\nName:- {user_details[1]}\nPhone Number:- {user_details[2]}", font=custom_font)
     else:
         details_label.config(text="User not found")
 
-cpf_info_frame = tk.Frame(my_w, background="snow2")
-cpf_info_frame.place(relx=0.01, rely=0.12, relwidth=0.2, relheight=0.08)
+cpf_info_frame = tk.Frame(my_w, background="azure2")
+cpf_info_frame.place(relx=0.01, rely=0.18, relwidth=0.32, relheight=0.1)
  # Create label for Feeders Info Frame
-label = tk.Label(cpf_info_frame, text="GET CONTACT DETAILS", font=("Times New Roman", 15, "bold"),foreground="red4")
+label = tk.Label(cpf_info_frame, text="GET CONTACT DETAILS", font=("Times New Roman", 14, "bold"),foreground="blue")
 label.pack()
 cpf_label = tk.Label(cpf_info_frame, text="Enter CPF Number:", font=("Times New Roman", 15, "bold"), background="snow2", foreground="red4")
 cpf_label.pack(side="left", padx=10, pady=10)
@@ -471,8 +468,8 @@ cpf_submit_button = ttk.Button(cpf_info_frame, text="Submit CPF", command=displa
 cpf_submit_button.pack(side="left", padx=10, pady=10)
 
 # Create a label for displaying user details
-details_label = tk.Label(my_w, text="", font=("Arial", 12), background="snow2")
-details_label.place(relx=0.01, rely=0.19, relwidth=0.2, relheight=0.08)
+details_label = tk.Label(my_w, text="", font=("Arial", 12), background="azure2")
+details_label.place(relx=0.01, rely=0.27, relwidth=0.32, relheight=0.11)
 
 # Set the initial focus to the combobox
 cb1.focus_set()
