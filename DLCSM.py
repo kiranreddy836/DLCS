@@ -12,9 +12,6 @@ import tkinter.messagebox as messagebox
 #import RPi.GPIO as GPIO
 import os
 import tkinter.font as tkFont
-from revpimodio2 import *
-from revpimodio import *
-import time
 
 # Check if the lock file exists
 lock_file = "app_lock.lock"
@@ -24,56 +21,6 @@ if os.path.isfile(lock_file):
 # Create the lock file
 open(lock_file, 'w').close()
 
-# Create RevPiModIO2 object
-pi = RevPiModIO(autorefresh=True)
-
-# Define output pins corresponding to feeders
-feeder_output_pins = {
-    'Feeder-1': "O_1",
-    'Feeder-2': "O_2",
-    'Feeder-3': "O_3",
-    'Feeder-4': "O_4"
-}
-
-# Define Input pins corresponding to feeders
-feeder_input_pins = {
-    'Feeder-1': "I_1",
-    'Feeder-2': "I_2",
-    'Feeder-3': "I_3",
-    'Feeder-4': "I_4"
-}
-
-# Function to set feeder lock status
-def set_feeder_output_status(feeder_number, lock_status):
-    pin = feeder_output_pins.get(feeder_number)
-    pi.write_value(pin, lock_status)
-    pi.refresh()
-    print(f"Feeder-{feeder_number} lock status set to {lock_status}")
-
-# Function to get input status of a feeder
-def get_feeder_input_status(feeder_number):
-    pin = feeder_input_pins.get(feeder_number)
-    input_status = pi.read_value(pin)
-    print(f"Status of Feeder-{feeder_number} input: {input_status}")
-    return input_status
-
-# Function to get output status of a feeder
-def get_feeder_output_status(feeder_number):
-    pin = feeder_output_pins.get(feeder_number)
-    output_status = pi.read_value(pin)
-    print(f"Status of Feeder-{feeder_number} output: {output_status}")
-    return output_status
-
-# Function to compare input and output status for a feeder
-def compare_input_output_status(feeder_number):
-    input_status = get_feeder_input_status(feeder_number)
-    output_status = get_feeder_output_status(feeder_number)
-    
-    match_status = input_status == output_status
-    print(f"Feeder-{feeder_number} input status: {input_status}")
-    print(f"Feeder-{feeder_number} output status: {output_status}")
-    
-    return match_status
 # Initialize the variable to store the last scanned cpfNo
 #global last_scanned_cpf 
 
@@ -437,10 +384,6 @@ def initialize_feeder_info_window(parent):
         # Use feeder Number and Status to activate the SBC pins based on user interaction with the GUI
         feeder_no = row[0]
         locked_names = row[1]
-        lock_status = False
-        if len(locked_names)!=0:
-            lock_status = True
-        set_feeder_output_status(feeder_no,lock_status)
 
         if locked_names:
            names_list = locked_names.split(',')
@@ -448,7 +391,6 @@ def initialize_feeder_info_window(parent):
            other_names = ', '.join(names_list[1:])
            names_display = f"LC issued for :: {first_name}, {other_names}" if other_names else f"LC issued for :: {first_name}"
            bg_color = "spring green"
-           set_feeder_output_status(feeder_no,True)
         else:
            names_list = []
            names_display = "LC not issued for this feeder"  # Set the default text
@@ -719,83 +661,80 @@ def show_frames(label, selectedFeeder):
             points = obj.polygon
             if len(points) >= 4:
                 # Draw a border around the QR code
-                cv2.polylines(frame, [np.array(points)], True, (0, 255, 0), 2)
+                    cv2.polylines(frame, [np.array(points)], True, (0, 255, 0), 2)
 
-                # Display QR code data
-                cv2.putText(frame, qr_data, (points[0][0], points[0][1] - 10),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+                    # Display QR code data
+                    cv2.putText(frame, qr_data, (points[0][0], points[0][1] - 10),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
 
-                # Check if qr_data exists in the logindata table
-                query = "SELECT names FROM logindata WHERE feederno = ?"
-                cur.execute(query, (selectedFeeder,))
-                result = cur.fetchone()
-                print(result)
+                    # Check if qr_data exists in the logindata table
+                    query = "SELECT names FROM logindata WHERE feederno = ?"
+                    cur.execute(query, (selectedFeeder,))
+                    result = cur.fetchone()
+                    print(result)
 
-                # Split QR Code data
-                print(qr_data)
-                partsqr = qr_data.split("_")
+                    # Split QR Code data
+                    print(qr_data)
+                    partsqr = qr_data.split("_")
 
-                if len(partsqr) == 3:
-                    name, qrCPF, qrMode = partsqr
-                    if check_master_status(qrCPF)=="Y":
-                        updateqr(qrCPF)
-                    scannedqrCode = fetchscannedQR()
-                    print("=====================qrCPF==================================:", qrCPF)
-                    print("=====================last_scanned_cpf=======================:",scannedqrCode)
-                    qrName = "_".join([name,qrCPF])
-                    if result is not None:
-                        names = result[0].split(",") if result[0] else []
-                    else:
-                        print("No matching record found.")
-                    # Validate if its master
-                    master_status = check_master_status(qrCPF)
-                    approval_shown =fetchapproval()
-
-                    if not approval_shown and master_status == "Y":
-                        confirmation = custom_askyesnoforapproval("MASTER OPERATION DETECTED", "Select Approve other users button if you are allowing other users to scan their card or Select Operate to lock or unlock the selected feeder","blue")
-                        if(confirmation):
-                            print("confirmed")
-                            custom_message_box("AUTHORIZATION SUCCESS", "Click OK and allow other user to scan the access card", "blue")
-                            # Set the flag to True after showing the window
-                            updateapproval(True)
+                    if len(partsqr) == 3:
+                        name, qrCPF, qrMode = partsqr
+                        if check_master_status(qrCPF)=="Y":
+                            updateqr(qrCPF)
+                        scannedqrCode = fetchscannedQR()
+                        print("=====================qrCPF==================================:", qrCPF)
+                        print("=====================last_scanned_cpf=======================:",scannedqrCode)
+                        qrName = "_".join([name,qrCPF])
+                        if result is not None:
+                            names = result[0].split(",") if result[0] else []
                         else:
-                            if "ON" in qr_data:
-                                if result is not None:
-                                    # User is already logged in
-                                    if len(names)!=0 and qrName not in names:
-                                        names.append(qrName)
-                                        # Update the names in the logindata table
-                                        updated_names = ",".join(names)
-                                        query = "UPDATE logindata SET names = ? WHERE feederno = ?"
-                                        cur.execute(query, (updated_names, selectedFeeder))
-                                        conn.commit()
-                                        initialize_feeder_info_window(my_w)
-                                        status = compare_input_output_status(selectedFeeder)
-                                        if status:
-                                            custom_message_box("LOCK SUCCESS - MULTIPLE LOCKS FOUND", f" You have locked the feeder Successfully. {selectedFeeder} is now locked by multiple persons", "dark orange")
-                                            # Stop the camera feed
-                                            stop_camera()
-                                        else:
-                                            custom_message_box("ERROR IN LOCKING MECHANISM. FEEDBACK FAILED", f"{selectedFeeder} has not been locked due to feedback failure at the site", "dark orange")
-                                            names.remove(qrName)
+                            print("No matching record found.")
+                        # Validate if its master
+                        master_status = check_master_status(qrCPF)
+                        approval_shown =fetchapproval()
+
+                        if not approval_shown and master_status == "Y":
+                            confirmation = custom_askyesnoforapproval("MASTER OPERATION DETECTED", "Select Approve other users button if you are allowing other users to scan their card or Select Operate to lock or unlock the selected feeder","blue")
+                            if(confirmation):
+                                print("confirmed")
+                                custom_message_box("AUTHORIZATION SUCCESS", "Click OK and allow other user to scan the access card", "blue")
+                                # Set the flag to True after showing the window
+                                updateapproval(True)
+                            else:
+                                if "ON" in qr_data:
+                                    if result is not None:
+                                        # User is already logged in
+                                        if len(names)!=0 and qrName not in names:
+                                            names.append(qrName)
                                             # Update the names in the logindata table
                                             updated_names = ",".join(names)
                                             query = "UPDATE logindata SET names = ? WHERE feederno = ?"
                                             cur.execute(query, (updated_names, selectedFeeder))
                                             conn.commit()
                                             initialize_feeder_info_window(my_w)
+                                            custom_message_box("LOCK SUCCESS - MULTIPLE LOCKS FOUND", f" You have locked the feeder Successfully. {selectedFeeder} is now locked by multiple persons", "dark orange")
                                             # Stop the camera feed
                                             stop_camera()
 
-                                    elif len(names)!=0 and qrName in names: 
-                                        custom_message_box("FEEDER ALREADY LOCKED", f"{selectedFeeder} is already locked by you", "pale turquoise")
-                                        # Stop the camera feed
-                                        stop_camera()
+                                        elif len(names)!=0 and qrName in names: 
+                                            custom_message_box("FEEDER ALREADY LOCKED", f"{selectedFeeder} is already locked by you", "pale turquoise")
+                                            # Stop the camera feed
+                                            stop_camera()
 
-                                    elif len(names) == 0:       
-                                        # update data into the logindata table
-                                        query = "UPDATE logindata SET names = ? WHERE feederno = ?"
-                                        data = (qrName,selectedFeeder)
+                                        elif len(names) == 0:       
+                                            # update data into the logindata table
+                                            query = "UPDATE logindata SET names = ? WHERE feederno = ?"
+                                            data = (qrName,selectedFeeder)
+                                            cur.execute(query, data)
+                                            conn.commit()
+                                            initialize_feeder_info_window(my_w)
+                                            custom_message_box("LOCK SUCCESS", f"The {selectedFeeder} has been successfully locked by {qrName}", "SpringGreen3")
+                                            # Stop the camera feed
+                                            stop_camera()
+
+                                    else:
+                                        query = "INSERT INTO logindata (feederno, names) VALUES (?, ?)"
+                                        data = (selectedFeeder, qrName)
                                         cur.execute(query, data)
                                         conn.commit()
                                         initialize_feeder_info_window(my_w)
@@ -803,124 +742,114 @@ def show_frames(label, selectedFeeder):
                                         # Stop the camera feed
                                         stop_camera()
 
-                                else:
-                                    query = "INSERT INTO logindata (feederno, names) VALUES (?, ?)"
-                                    data = (selectedFeeder, qrName)
-                                    cur.execute(query, data)
-                                    conn.commit()
-                                    initialize_feeder_info_window(my_w)
-                                    custom_message_box("LOCK SUCCESS", f"The {selectedFeeder} has been successfully locked by {qrName}", "SpringGreen3")
+                                elif "OFF" in qr_data:
+                                    master_status = check_master_status(qrCPF)
+                                    if result is not None:
+                                        # User logged out, delete the corresponding name from the list
+                                        if qrName in names and len(names)!=0:
+                                            names.remove(qrName)
+                                            updated_names = ",".join(names)
+                                            query = "UPDATE logindata SET names = ? WHERE feederno = ?"
+                                            cur.execute(query, (updated_names, selectedFeeder))
+                                            conn.commit()
+                                            initialize_feeder_info_window(my_w)
+                                            custom_message_box("UNLOCK SUCCESS", f"{selectedFeeder} has been unlocked by {qrName} successfully", "SpringGreen3")
+                                        elif master_status == "Y" and qrName not in names and len(names)!=0:
+                                            # Master status is "Y", ask for confirmation before logging out all users
+                                            confirmation = custom_askyesno("MASTER LOGOUT CONFIRMATION", f"{selectedFeeder} is not locked by you. Are you sure you want to log out other users using master privileges?","red")
+                                            if(confirmation):
+                                                #logout_all_users(selectedFeeder)
+                                                display_names_for_logout(selectedFeeder)
+                                                #custom_message_box("MASTER LOGOUT", "All users logged out from the feeder", "red")
+                                            else:
+                                            # User canceled the operation
+                                                custom_message_box("Operation Cancelled", "Master logout operation canceled", "blue")
+                                        elif qrName not in names and len(names)!=0:
+                                            custom_message_box("FEEDER NOT LOCKED BY YOU", f"You are trying to unlock the {selectedFeeder} which is not locked by you", "red")
+                                        else:
+                                            custom_message_box("FEEDER NOT LOCKED BY ANY ONE", f"{selectedFeeder} is not locked by anyone. Close the Scanner", "pale turquoise")
                                     # Stop the camera feed
                                     stop_camera()
 
-                            elif "OFF" in qr_data:
-                                master_status = check_master_status(qrCPF)
-                                if result is not None:
-                                    # User logged out, delete the corresponding name from the list
-                                    if qrName in names and len(names)!=0:
-                                        names.remove(qrName)
-                                        updated_names = ",".join(names)
-                                        query = "UPDATE logindata SET names = ? WHERE feederno = ?"
-                                        cur.execute(query, (updated_names, selectedFeeder))
+                        elif check_master_status(scannedqrCode)!="Y" and check_master_status(qrCPF) !="Y" :
+                            custom_message_box("UNAUTHORISED QR CODE DETECTED", "Unauthorised access detected. Close the Scanner", "orange red")
+                            # Stop the camera feed
+                            stop_camera()
+
+                        elif check_master_status(scannedqrCode)=="Y" and check_master_status(qrCPF) !="Y" :
+                                if "ON" in qr_data:
+                                    if result is not None:
+                                        # User is already logged in
+                                        if len(names)!=0 and qrName not in names:
+                                            names.append(qrName)
+                                            # Update the names in the logindata table
+                                            updated_names = ",".join(names)
+                                            query = "UPDATE logindata SET names = ? WHERE feederno = ?"
+                                            cur.execute(query, (updated_names, selectedFeeder))
+                                            conn.commit()
+                                            initialize_feeder_info_window(my_w)
+                                            custom_message_box("LOCK SUCCESS - MULTIPLE LOCKS FOUND", f" You have locked the feeder Successfully. {selectedFeeder} is now locked by multiple persons", "dark orange")
+                                            # Stop the camera feed
+                                            stop_camera()
+
+                                        elif len(names)!=0 and qrName in names: 
+                                            custom_message_box("FEEDER ALREADY LOCKED", f"{selectedFeeder} is already locked by you", "pale turquoise")
+                                            # Stop the camera feed
+                                            stop_camera()
+
+                                        elif len(names) == 0:       
+                                            # update data into the logindata table
+                                            query = "UPDATE logindata SET names = ? WHERE feederno = ?"
+                                            data = (qrName,selectedFeeder)
+                                            cur.execute(query, data)
+                                            conn.commit()
+                                            initialize_feeder_info_window(my_w)
+                                            custom_message_box("LOCK SUCCESS", f"The {selectedFeeder} has been successfully locked by {qrName}", "SpringGreen3")
+                                            # Stop the camera feed
+                                            stop_camera()
+
+                                    else:
+                                        query = "INSERT INTO logindata (feederno, names) VALUES (?, ?)"
+                                        data = (selectedFeeder, qrName)
+                                        cur.execute(query, data)
                                         conn.commit()
                                         initialize_feeder_info_window(my_w)
-                                        custom_message_box("UNLOCK SUCCESS", f"{selectedFeeder} has been unlocked by {qrName} successfully", "SpringGreen3")
-                                    elif master_status == "Y" and qrName not in names and len(names)!=0:
-                                        # Master status is "Y", ask for confirmation before logging out all users
-                                        confirmation = custom_askyesno("MASTER LOGOUT CONFIRMATION", f"{selectedFeeder} is not locked by you. Are you sure you want to log out other users using master privileges?","red")
-                                        if(confirmation):
-                                            #logout_all_users(selectedFeeder)
-                                            display_names_for_logout(selectedFeeder)
-                                            #custom_message_box("MASTER LOGOUT", "All users logged out from the feeder", "red")
-                                        else:
-                                        # User canceled the operation
-                                            custom_message_box("Operation Cancelled", "Master logout operation canceled", "blue")
-                                    elif qrName not in names and len(names)!=0:
-                                        custom_message_box("FEEDER NOT LOCKED BY YOU", f"You are trying to unlock the {selectedFeeder} which is not locked by you", "red")
-                                    else:
-                                        custom_message_box("FEEDER NOT LOCKED BY ANY ONE", f"{selectedFeeder} is not locked by anyone. Close the Scanner", "pale turquoise")
-                                # Stop the camera feed
-                                stop_camera()
+                                        custom_message_box("LOCK SUCCESS", f"The {selectedFeeder} has been successfully locked by {qrName}", "SpringGreen3")
+                                        # Stop the camera feed
+                                        stop_camera()
 
-                    elif check_master_status(scannedqrCode)!="Y" and check_master_status(qrCPF) !="Y" :
+                                elif "OFF" in qr_data:
+                                    master_status = check_master_status(qrCPF)
+                                    if result is not None:
+                                        # User logged out, delete the corresponding name from the list
+                                        if qrName in names and len(names)!=0:
+                                            names.remove(qrName)
+                                            updated_names = ",".join(names)
+                                            query = "UPDATE logindata SET names = ? WHERE feederno = ?"
+                                            cur.execute(query, (updated_names, selectedFeeder))
+                                            conn.commit()
+                                            initialize_feeder_info_window(my_w)
+                                            custom_message_box("UNLOCK SUCCESS", f"{selectedFeeder} has been unlocked by {qrName} successfully", "SpringGreen3")
+                                        elif master_status == "Y" and qrName not in names and len(names)!=0:
+                                            # Master status is "Y", ask for confirmation before logging out all users
+                                            confirmation = custom_askyesno("MASTER LOGOUT CONFIRMATION", f"{selectedFeeder} is not locked by you. Are you sure you want to log out other users using master privileges?","red")
+                                            if(confirmation):
+                                                #logout_all_users(selectedFeeder)
+                                                display_names_for_logout(selectedFeeder)
+                                                #custom_message_box("MASTER LOGOUT", "All users logged out from the feeder", "red")
+                                            else:
+                                            # User canceled the operation
+                                                custom_message_box("Operation Cancelled", "Master logout operation canceled", "blue")
+                                        elif qrName not in names and len(names)!=0:
+                                            custom_message_box("FEEDER NOT LOCKED BY YOU", f"You are trying to unlock the {selectedFeeder} which is not locked by you", "red")
+                                        else:
+                                            custom_message_box("FEEDER NOT LOCKED BY ANY ONE", f"{selectedFeeder} is not locked by anyone. Close the Scanner", "pale turquoise")
+                                    # Stop the camera feed
+                                    stop_camera()      
+                    else:
                         custom_message_box("UNAUTHORISED QR CODE DETECTED", "Unauthorised access detected. Close the Scanner", "orange red")
                         # Stop the camera feed
                         stop_camera()
-
-                    elif check_master_status(scannedqrCode)=="Y" and check_master_status(qrCPF) !="Y" :
-                            if "ON" in qr_data:
-                                if result is not None:
-                                    # User is already logged in
-                                    if len(names)!=0 and qrName not in names:
-                                        names.append(qrName)
-                                        # Update the names in the logindata table
-                                        updated_names = ",".join(names)
-                                        query = "UPDATE logindata SET names = ? WHERE feederno = ?"
-                                        cur.execute(query, (updated_names, selectedFeeder))
-                                        conn.commit()
-                                        initialize_feeder_info_window(my_w)
-                                        custom_message_box("LOCK SUCCESS - MULTIPLE LOCKS FOUND", f" You have locked the feeder Successfully. {selectedFeeder} is now locked by multiple persons", "dark orange")
-                                        # Stop the camera feed
-                                        stop_camera()
-
-                                    elif len(names)!=0 and qrName in names: 
-                                        custom_message_box("FEEDER ALREADY LOCKED", f"{selectedFeeder} is already locked by you", "pale turquoise")
-                                        # Stop the camera feed
-                                        stop_camera()
-
-                                    elif len(names) == 0:       
-                                        # update data into the logindata table
-                                        query = "UPDATE logindata SET names = ? WHERE feederno = ?"
-                                        data = (qrName,selectedFeeder)
-                                        cur.execute(query, data)
-                                        conn.commit()
-                                        initialize_feeder_info_window(my_w)
-                                        custom_message_box("LOCK SUCCESS", f"The {selectedFeeder} has been successfully locked by {qrName}", "SpringGreen3")
-                                        # Stop the camera feed
-                                        stop_camera()
-
-                                else:
-                                    query = "INSERT INTO logindata (feederno, names) VALUES (?, ?)"
-                                    data = (selectedFeeder, qrName)
-                                    cur.execute(query, data)
-                                    conn.commit()
-                                    initialize_feeder_info_window(my_w)
-                                    custom_message_box("LOCK SUCCESS", f"The {selectedFeeder} has been successfully locked by {qrName}", "SpringGreen3")
-                                    # Stop the camera feed
-                                    stop_camera()
-
-                            elif "OFF" in qr_data:
-                                master_status = check_master_status(qrCPF)
-                                if result is not None:
-                                    # User logged out, delete the corresponding name from the list
-                                    if qrName in names and len(names)!=0:
-                                        names.remove(qrName)
-                                        updated_names = ",".join(names)
-                                        query = "UPDATE logindata SET names = ? WHERE feederno = ?"
-                                        cur.execute(query, (updated_names, selectedFeeder))
-                                        conn.commit()
-                                        initialize_feeder_info_window(my_w)
-                                        custom_message_box("UNLOCK SUCCESS", f"{selectedFeeder} has been unlocked by {qrName} successfully", "SpringGreen3")
-                                    elif master_status == "Y" and qrName not in names and len(names)!=0:
-                                        # Master status is "Y", ask for confirmation before logging out all users
-                                        confirmation = custom_askyesno("MASTER LOGOUT CONFIRMATION", f"{selectedFeeder} is not locked by you. Are you sure you want to log out other users using master privileges?","red")
-                                        if(confirmation):
-                                            #logout_all_users(selectedFeeder)
-                                            display_names_for_logout(selectedFeeder)
-                                            #custom_message_box("MASTER LOGOUT", "All users logged out from the feeder", "red")
-                                        else:
-                                        # User canceled the operation
-                                            custom_message_box("Operation Cancelled", "Master logout operation canceled", "blue")
-                                    elif qrName not in names and len(names)!=0:
-                                        custom_message_box("FEEDER NOT LOCKED BY YOU", f"You are trying to unlock the {selectedFeeder} which is not locked by you", "red")
-                                    else:
-                                        custom_message_box("FEEDER NOT LOCKED BY ANY ONE", f"{selectedFeeder} is not locked by anyone. Close the Scanner", "pale turquoise")
-                                # Stop the camera feed
-                                stop_camera()      
-                else:
-                    custom_message_box("UNAUTHORISED QR CODE DETECTED", "Unauthorised access detected. Close the Scanner", "orange red")
-                    # Stop the camera feed
-                    stop_camera()
 
         # Convert the OpenCV frame to a Tkinter-compatible image
         img = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
