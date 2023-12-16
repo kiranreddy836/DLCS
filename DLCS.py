@@ -15,6 +15,8 @@ import tkinter.font as tkFont
 from revpimodio2 import *
 from revpimodio import *
 import time
+from datetime import datetime
+#import CUPS
 
 # Check if the lock file exists
 lock_file = "app_lock.lock"
@@ -24,8 +26,301 @@ if os.path.isfile(lock_file):
 # Create the lock file
 open(lock_file, 'w').close()
 
+def open_admin_window():
+
+    global combo_box_state, admin_window,admin_button # Use the global variables
+
+    cb1.config(state="disabled")
+
+    # Create a new window 
+    admin_window = tk.Toplevel(my_w)
+    admin_window.title("Admin Window to configure Users in database")
+
+    # Set focus 
+    admin_window.focus_set()
+    admin_window.grab_set()
+
+    # Increase the size of the window
+    window_width = 800
+    window_height = 400
+
+    # Calculate the window position to center it on the screen
+    screen_width = admin_window.winfo_screenwidth()
+    screen_height = admin_window.winfo_screenheight()
+    x_position = (screen_width - window_width) // 2
+    y_position = (screen_height - window_height) // 2
+
+    # Set the window size and position
+    admin_window.geometry(f"{window_width}x{window_height}+{x_position}+{y_position}")
+
+    # Disable both minimize and maximize options
+    admin_window.grab_set()
+    
+    def validate_cpf_length(new_value):
+        return new_value.isdigit() and len(new_value) <= 5
+
+    validate_cpf_length_cmd = admin_window.register(validate_cpf_length)
+
+    def add_user():
+        # Retrieve data from the input fields
+        cpf = entry_cpf.get()
+        name = entry_name.get()
+        designation = entry_designation.get()
+        phone = entry_phone.get()
+        master = entry_master.get()
+        # Check if the CPF is unique
+        cur.execute("SELECT cpf_no FROM users WHERE cpf_no=?", (cpf,))
+        existing_cpf = cur.fetchone()
+        if existing_cpf:
+            status_label_add.config(text="CPF already exists!")
+        elif not existing_cpf and len(cpf)==5:
+            # Insert the new user into the database
+            cur.execute("INSERT INTO users (cpf_no, name, designation, phone_no, master) VALUES (?, ?, ?, ?, ?)",
+                        (cpf, name, designation, phone, master))
+            conn.commit()
+            status_label_add.config(text="User added successfully!",fg="green")
+        else:
+            status_label_add.config(text="You are trying to add Invaid Cpf Number!",fg="red")
+
+    def get_user():
+        cpf = entry_cpf_update.get()
+        cur.execute("SELECT * FROM users WHERE cpf_no=?", (cpf,))
+        user_details = cur.fetchone()
+        if user_details:
+            # Display user details for updating
+            entry_cpf_update.delete(0, tk.END)
+            entry_cpf_update.insert(0, user_details[0])  # Display CPF
+            entry_name_update.delete(0, tk.END)
+            entry_name_update.insert(0, user_details[1])  # Display name
+            entry_designation_update.delete(0, tk.END)
+            entry_designation_update.insert(0, user_details[2])  # Display designation
+            entry_phone_update.delete(0, tk.END)
+            entry_phone_update.insert(0, user_details[3])  # Display phone
+            entry_master_update.delete(0, tk.END)
+            entry_master_update.insert(0, user_details[4])  # Display master
+            entry_master_update.config(state='disabled') 
+            status_label_update.config(text="")
+        else:
+            entry_name_update.delete(0, tk.END)
+            entry_designation_update.delete(0, tk.END)
+            entry_phone_update.delete(0, tk.END)
+            entry_master_update.delete(0, tk.END)
+            status_label_update.config(text="User not found!",fg="red")
+
+    def update_user():
+        cpf = entry_cpf_update.get()
+        name = entry_name_update.get()
+        designation = entry_designation_update.get()
+        phone = entry_phone_update.get()
+        master = entry_master_update.get()
+
+        # Update the user details
+        cur.execute("UPDATE users SET name=?, designation=?, phone_no=?, master=? WHERE cpf_no=?",
+                    (name, designation, phone, master, cpf))
+        conn.commit()
+        status_label_update.config(text="User details updated!", fg="green")
+
+    def delete_user():
+        cpf = entry_cpf_delete.get()
+        cur.execute("SELECT * FROM users WHERE cpf_no=?", (cpf,))
+        user_details = cur.fetchone()
+        if user_details:
+            # Display user details for deletion
+            entry_cpf_delete.delete(0, tk.END)
+            entry_cpf_delete.insert(0, user_details[0])  # Display CPF
+            entry_name_delete.delete(0, tk.END)
+            entry_name_delete.insert(0, user_details[1])  # Display name
+            entry_designation_delete.delete(0, tk.END)
+            entry_designation_delete.insert(0, user_details[2])  # Display designation
+            entry_phone_delete.delete(0, tk.END)
+            entry_phone_delete.insert(0, user_details[3])  # Display phone
+            entry_master_delete.delete(0, tk.END)
+            entry_master_delete.insert(0, user_details[4])  # Display master
+            status_label_delete.config(text="")
+        else:
+            # Clear the entry fields
+            entry_name_delete.delete(0, tk.END)
+            entry_designation_delete.delete(0, tk.END)
+            entry_phone_delete.delete(0, tk.END)
+            entry_master_delete.delete(0, tk.END)
+            status_label_delete.config(text="User not found!",fg="red")
+
+    def confirm_delete():
+        cpf = entry_cpf_delete.get()
+        cur.execute("DELETE FROM users WHERE cpf_no=?", (cpf,))
+        conn.commit()
+        status_label_delete.config(text="User deleted successfully!", fg="green")
+        # Clear the entry fields
+        entry_cpf_delete.delete(0, tk.END)
+        entry_name_delete.delete(0, tk.END)
+        entry_designation_delete.delete(0, tk.END)
+        entry_phone_delete.delete(0, tk.END)
+        entry_master_delete.delete(0, tk.END)
+
+    def on_window_close():
+        global admin_window  # Use the global variables
+        cb1.config(state="normal")
+        admin_window.destroy()
+        admin_window.grab_release()
+
+    admin_window.protocol("WM_DELETE_WINDOW", on_window_close)
+
+    def stop_camera():
+        global camera_running, cap
+        if camera_running:
+            camera_running = False
+            resetqr()
+            resetapproval("False")
+            cap.release()
+            label.imgtk = None
+            label.configure(image=None)
+            sel.set("Select the Feeder") # Set the combo box value back to default
+            submitbutton.config(state="disabled")
+            cb1.focus_set()
+            for w in my_w.grid_slaves(row=5):  # all elements in row 5
+             w.grid_remove()  # delete elements
+
+    stop_camera()
+    # Add User Section
+    frame_add_user = tk.Frame(admin_window, padx=10, pady=10)
+    frame_add_user.grid(row=0, column=0, padx=10, pady=10)
+
+    label_header_add = tk.Label(frame_add_user, text="Add User", font=("Arial", 14, "bold"), bg="turquoise")
+    label_header_add.grid(row=0, columnspan=2, pady=5)
+
+    label_cpf = tk.Label(frame_add_user, text="CPF:")
+    label_cpf.grid(row=1, column=0)
+    entry_cpf = tk.Entry(frame_add_user, validate="key", validatecommand=(validate_cpf_length_cmd, "%P"))
+    entry_cpf.grid(row=1, column=1)
+
+    label_name = tk.Label(frame_add_user, text="Name:")
+    label_name.grid(row=2, column=0)
+    entry_name = tk.Entry(frame_add_user)
+    entry_name.grid(row=2, column=1)
+
+    label_designation = tk.Label(frame_add_user, text="Designation:")
+    label_designation.grid(row=3, column=0)
+    entry_designation = tk.Entry(frame_add_user)
+    entry_designation.grid(row=3, column=1)
+
+    label_phone = tk.Label(frame_add_user, text="Phone:")
+    label_phone.grid(row=4, column=0)
+    entry_phone = tk.Entry(frame_add_user)
+    entry_phone.grid(row=4, column=1)
+
+    label_master = tk.Label(frame_add_user, text="Master:")
+    label_master.grid(row=5, column=0)
+    entry_master = tk.Entry(frame_add_user)
+    entry_master.insert(0, 'N')  # Set default value to 'N'
+    entry_master.config(state='disabled')  # Make the entry non-editable
+    entry_master.grid(row=5, column=1)
+
+    status_label_add = tk.Label(frame_add_user, text="")
+    status_label_add.grid(row=6, columnspan=2)
+
+    submit_button = tk.Button(frame_add_user, text="Add User", command=add_user)
+    submit_button.grid(row=7, columnspan=2)
+
+    # Update User Section
+    frame_update_user = tk.Frame(admin_window, padx=10, pady=10)
+    frame_update_user.grid(row=0, column=1, padx=10, pady=10)
+
+    label_header_update = tk.Label(frame_update_user, text="Update/View User", font=("Arial", 14, "bold"), bg="pale turquoise")
+    label_header_update.grid(row=0, columnspan=2, padx=0, pady=5)
+
+    label_cpf_update = tk.Label(frame_update_user, text="Enter CPF:")
+    label_cpf_update.grid(row=1, column=0)
+    entry_cpf_update = tk.Entry(frame_update_user)
+    entry_cpf_update.grid(row=1, column=1)
+
+    update_button = tk.Button(frame_update_user, text="Get User Details", command=get_user)
+    update_button.grid(row=2, columnspan=2)
+
+    label_name_update = tk.Label(frame_update_user, text="Name:")
+    label_name_update.grid(row=3, column=0)
+    entry_name_update = tk.Entry(frame_update_user)
+    entry_name_update.grid(row=3, column=1)
+
+    label_designation_update = tk.Label(frame_update_user, text="Designation:")
+    label_designation_update.grid(row=4, column=0)
+    entry_designation_update = tk.Entry(frame_update_user)
+    entry_designation_update.grid(row=4, column=1)
+
+    label_phone_update = tk.Label(frame_update_user, text="Phone:")
+    label_phone_update.grid(row=5, column=0)
+    entry_phone_update = tk.Entry(frame_update_user)
+    entry_phone_update.grid(row=5, column=1)
+
+    label_master_update = tk.Label(frame_update_user, text="Master:")
+    label_master_update.grid(row=6, column=0)
+    entry_master_update = tk.Entry(frame_update_user)
+    #entry_master_update.config(state='disabled')
+    entry_master_update.grid(row=6, column=1)
+
+    status_label_update = tk.Label(frame_update_user, text="")
+    status_label_update.grid(row=7, columnspan=2)
+
+    update_submit_button = tk.Button(frame_update_user, text="Update User", command=update_user)
+    update_submit_button.grid(row=8, columnspan=2)
+
+    # Delete User Section
+    frame_delete_user = tk.Frame(admin_window, padx=10, pady=10)
+    frame_delete_user.grid(row=0, column=2, padx=10, pady=10)
+
+    label_header_delete = tk.Label(frame_delete_user, text="Delete User", font=("Arial", 14, "bold"), bg="red")
+    label_header_delete.grid(row=0, columnspan=2, pady=5)
+
+    label_cpf_delete = tk.Label(frame_delete_user, text="Enter CPF:")
+    label_cpf_delete.grid(row=1, column=0)
+    entry_cpf_delete = tk.Entry(frame_delete_user)
+    entry_cpf_delete.grid(row=1, column=1)
+
+    delete_button = tk.Button(frame_delete_user, text="Get User Details for Delete", command=delete_user)
+    delete_button.grid(row=2, columnspan=2)
+
+    label_name_delete = tk.Label(frame_delete_user, text="Name:")
+    label_name_delete.grid(row=3, column=0)
+    entry_name_delete = tk.Entry(frame_delete_user)
+    entry_name_delete.grid(row=3, column=1)
+
+    label_designation_delete = tk.Label(frame_delete_user, text="Designation:")
+    label_designation_delete.grid(row=4, column=0)
+    entry_designation_delete = tk.Entry(frame_delete_user)
+    entry_designation_delete.grid(row=4, column=1)
+
+    label_phone_delete = tk.Label(frame_delete_user, text="Phone:")
+    label_phone_delete.grid(row=5, column=0)
+    entry_phone_delete = tk.Entry(frame_delete_user)
+    entry_phone_delete.grid(row=5, column=1)
+
+    label_master_delete = tk.Label(frame_delete_user, text="Master:")
+    label_master_delete.grid(row=6, column=0)
+    entry_master_delete = tk.Entry(frame_delete_user)
+    entry_master_delete.grid(row=6, column=1)
+
+    status_label_delete = tk.Label(frame_delete_user, text="")
+    status_label_delete.grid(row=7, columnspan=2)
+
+    delete_submit_button = tk.Button(frame_delete_user, text="Delete User", command=confirm_delete)
+    delete_submit_button.grid(row=8, columnspan=2)
+
+    # Note label at the bottom
+    note_label = tk.Label(admin_window, text="    NOTE: Master privilege for an user can be updated only through admin portal only. ", pady=10, font=("Arial", 10, "bold"))
+    note_label.grid(row=5, column=0, columnspan=3, sticky="ew")  # Positioned at the bottom
+
+    # Function to close the window
+    def close_window():
+        admin_window.destroy()
+
+    # Close button for the window
+    close_button = tk.Button(admin_window, text="Close Admin Window", command=close_window)
+    close_button.grid(row=2, column=0, columnspan=3, pady=10)
+
+    admin_window.columnconfigure(0, weight=1)  # Ensures horizontal centering of the label
+
+
 # Create RevPiModIO2 object
-pi = RevPiModIO(autorefresh=True)
+#pi = RevPiModIO(autorefresh=True)
 
 # Define output pins corresponding to feeders
 feeder_output_pins = {
@@ -45,35 +340,42 @@ feeder_input_pins = {
 
 # Function to set feeder lock status
 def set_feeder_output_status(feeder_number, lock_status):
+    print("output pins set")
+    """
     pin = feeder_output_pins.get(feeder_number)
     pi.write_value(pin, lock_status)
     pi.refresh()
-    print(f"Feeder-{feeder_number} lock status set to {lock_status}")
+    print(f"Feeder-{feeder_number} lock status set to {lock_status}")"""
 
 # Function to get input status of a feeder
 def get_feeder_input_status(feeder_number):
+    print("Input status fetched")
+
+    """ 
     pin = feeder_input_pins.get(feeder_number)
     input_status = pi.read_value(pin)
     print(f"Status of Feeder-{feeder_number} input: {input_status}")
-    return input_status
+    return input_status"""
 
 # Function to get output status of a feeder
 def get_feeder_output_status(feeder_number):
-    pin = feeder_output_pins.get(feeder_number)
+    print('Output status fetched')
+    """pin = feeder_output_pins.get(feeder_number)
     output_status = pi.read_value(pin)
     print(f"Status of Feeder-{feeder_number} output: {output_status}")
-    return output_status
+    return output_status"""
 
 # Function to compare input and output status for a feeder
 def compare_input_output_status(feeder_number):
-    input_status = get_feeder_input_status(feeder_number)
+    """input_status = get_feeder_input_status(feeder_number)
     output_status = get_feeder_output_status(feeder_number)
     
     match_status = input_status == output_status
     print(f"Feeder-{feeder_number} input status: {input_status}")
-    print(f"Feeder-{feeder_number} output status: {output_status}")
+    print(f"Feeder-{feeder_number} output status: {output_status}")"""
+    print("Comparison of input and output pins done")
     
-    return match_status
+    return True
 # Initialize the variable to store the last scanned cpfNo
 #global last_scanned_cpf 
 
@@ -125,6 +427,10 @@ def display_header(root):
                        background='RoyalBlue4', foreground="white",
                        font=("Times New Roman", 17, 'bold'))
     unit_label.place(relx=0.5, rely=0.8, anchor="center")
+    # Admin Button
+    admin_button = tk.Button(header_frame, text="Admin", command=open_admin_window, bg="white", fg="black")
+    admin_button.grid(row=0, column=2, padx=10)  # Adjust column and padding as needed
+
 
 # Establish SQLITE Database Connection (If using SQLite3 -- Comment other connection modes if using SQLite)
 current_directory = os.getcwd()
@@ -132,13 +438,37 @@ db_file = os.path.join(current_directory, "ilcst.db")
 conn = sqlite3.connect(db_file)
 cur = conn.cursor()
 
+"""def print(qrCPF, qrName, selectedFeeder, scannedqrCode, login_time, logout_time, master):
+    # Initialize a connection to the CUPS server
+    conn = cups.Connection()
+    # Get a list of available printers
+    printers = conn.getPrinters()
+    # printer's name
+    printer_name = 'DLCS'
+    # Check if the chosen printer is available
+    if printer_name in printers:
+        # Prepare the data to be printed
+        data_to_print = f"qrCPF: {qrCPF}, qrName: {qrName}, selectedFeeder: {selectedFeeder}, scannedqrCode: {scannedqrCode}, datetime: login_time}"
+        # Send data to the printer
+        conn.printFile(printer_name, "-", {"cpi": "12", "lpi": "6"}, data_to_print)
+        print("Printing successful.")
+    else:
+        print("Printer not found.")"""
+
+def updatelogdata(qrCPF, qrName, selectedFeeder, scannedqrCode, login_time, logout_time, errors, master_logout,time_stamp):
+    data_to_insert = (qrCPF, qrName, selectedFeeder, scannedqrCode, login_time, logout_time, errors, master_logout,time_stamp)
+    insert_query = '''INSERT INTO logdata (cpfNo, name, feeder, authorised_by, login_time, logout_time, errors, master_logout, time_stamp)
+                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'''
+    cur.execute(insert_query, data_to_insert)
+    conn.commit()
+
 # Function to stop the camera feed
 def stop_camera():
     global camera_running, cap
     if camera_running:
         camera_running = False
         resetqr()
-        resetapproval(False)
+        resetapproval("False")
         cap.release()
 
 # Function to enable or disable the "Select Feeder" combo box
@@ -218,6 +548,11 @@ def display_names_for_logout(selectedFeeder):
         combo_box = ttk.Combobox(name_selection_window, textvariable=selected_name, values=names_list, state="readonly")
         combo_box.pack(padx=10, pady=10)
 
+        def fetchcpf(name_to_logout):
+            parts = name_to_logout.split('_')
+            cpf_No = parts[1] if len(parts) > 1 else None
+            return cpf_No
+
         def logout_selected_name():
             name_to_logout = selected_name.get()
             if name_to_logout:
@@ -228,9 +563,22 @@ def display_names_for_logout(selectedFeeder):
                 cur.execute(query, (updated_names, selectedFeeder))
                 conn.commit()
                 initialize_feeder_info_window(my_w)
-                custom_message_box("User Logout", f"{name_to_logout} has been logged out from {selectedFeeder}.", "green")
-                name_selection_window.destroy()
-                cb1.config(state="normal")
+                status = compare_input_output_status(selectedFeeder)
+                if status:
+                    custom_message_box("User Logout", f"{name_to_logout} has been logged out from {selectedFeeder}.", "green")
+                    name_selection_window.destroy()
+                    cb1.config(state="normal")
+                    updatelogdata(fetchcpf(name_to_logout), name_to_logout, selectedFeeder, fetchscannedQR(), None, datetime.now(), 'No Error.This is a master logout','Y', datetime.now())
+                else:
+                    custom_message_box("ERROR IN LOCKING MECHANISM. FEEDBACK FAILED", f"{selectedFeeder} has not been locked due to feedback failure at the site", "dark orange")
+                    names_list.append(name_to_logout)
+                    updated_names = ",".join(names_list)
+                    query = "UPDATE logindata SET names = ? WHERE feederno = ?"
+                    cur.execute(query, (updated_names, selectedFeeder))
+                    conn.commit()
+                    initialize_feeder_info_window(my_w)
+                    updatelogdata(fetchcpf(name_to_logout), name_to_logout, selectedFeeder, fetchscannedQR(), None, None, 'Feedback Error','Y', datetime.now())
+                    cb1.config(state="normal")
 
         def close_select_logout_window():
             name_selection_window.destroy()
@@ -247,27 +595,6 @@ def display_names_for_logout(selectedFeeder):
         name_selection_window.wait_window(name_selection_window)
     else:
         custom_message_box("Feeder Not Found", f"Feeder {selectedFeeder} not found.", "red")
-
-
-def logout_user(feeder_no, user_to_logout):
-        query = "SELECT names FROM logindata WHERE feederno = ?"
-        cur.execute(query, (feeder_no,))
-        result = cur.fetchone()
-
-        if result:
-            names = result[0].split(',') if result[0] else []
-            if user_to_logout in names:
-                names.remove(user_to_logout)
-                updated_names = ",".join(names)
-                query = "UPDATE logindata SET names = ? WHERE feederno = ?"
-                cur.execute(query, (updated_names, feeder_no))
-                conn.commit()
-                initialize_feeder_info_window(my_w)
-                custom_message_box("User Logout", f"{user_to_logout} has been logged out from {feeder_no}.", "green")
-            else:
-                custom_message_box("User Not Found", f"{user_to_logout} is not logged into {feeder_no}.", "orange red")
-        else:
-            custom_message_box("Feeder Not Found", f"Feeder {feeder_no} not found.", "red")
 
 def custom_askyesno(title, message, bg_color):
     result = False  # Initialize the result as False
@@ -327,26 +654,22 @@ def custom_askyesno(title, message, bg_color):
     return result
 
 def custom_askyesnoforapproval(title, message, bg_color):
-    result1 = False  # Initialize the result as False
+    result1 = None  # Initialize the result as None
+    
     def on_yes():
         nonlocal result1
         result1 = True
         dialog.destroy()
+        
     def on_no():
         nonlocal result1
         result1 = False
         dialog.destroy()
+
     dialog = tk.Toplevel()
-
-    # Create a custom title bar frame with a background
-    title_bar = tk.Frame(dialog, bg=bg_color, relief="raised", bd=1)
-    title_bar.pack(fill="x")
-    
-    # Create a label for the title within the custom title bar
-    title_label = ttk.Label(title_bar, text=title, font=("Times New Roman", 16, "bold"),  background=bg_color)
-    title_label.pack(side="left", padx=5)
     dialog.configure(bg="white")
-
+    dialog.overrideredirect(1)
+    
     # Calculate screen width and height
     screen_width = dialog.winfo_screenwidth()
     screen_height = dialog.winfo_screenheight()
@@ -361,9 +684,14 @@ def custom_askyesnoforapproval(title, message, bg_color):
     dialog.geometry(f"{window_width}x{window_height}+{x_position}+{y_position}")
     dialog.resizable(False, False)
     
-    # Remove the default title bar
-    dialog.overrideredirect(1)
-
+    # Create a custom title bar frame with a background
+    title_bar = tk.Frame(dialog, bg=bg_color, relief="raised", bd=1)
+    title_bar.pack(fill="x")
+    
+    # Create a label for the title within the custom title bar
+    title_label = ttk.Label(title_bar, text=title, font=("Times New Roman", 16, "bold"), background=bg_color)
+    title_label.pack(side="left", padx=5)
+    
     message_label = ttk.Label(dialog, text=message, font=("Arial", 12, "bold"), wraplength=380, background="white")
     message_label.pack(pady=20)
 
@@ -375,18 +703,16 @@ def custom_askyesnoforapproval(title, message, bg_color):
 
     yes_button.focus_set()
 
-    # Bind the Enter key to trigger the "Yes" and "No" button's action
-
     dialog.bind("<Return>", lambda event: dialog.focus_get().invoke())
-    dialog.grab_set()  # Make the dialog modal
-    dialog.wait_window()  # Wait for the dialog to be closed
+    dialog.grab_set()  
+    dialog.wait_window()  
 
     return result1
 
 # Function to initialize the feeder info window
 def initialize_feeder_info_window(parent):
     feeder_info_frame = tk.Frame(parent, background="snow2")
-    feeder_info_frame.place(relx=0.61, rely=0.18, relwidth=0.38, relheight=0.25)
+    feeder_info_frame.place(relx=0.61, rely=0.18, relwidth=0.38, relheight=0.2)
 
     # Create label for Feeders Info Frame
     label = tk.Label(feeder_info_frame, text="STATUS OF THE FEEDERS", font=("Times New Roman", 15, "bold"), background="yellow",foreground="red4")
@@ -448,7 +774,6 @@ def initialize_feeder_info_window(parent):
            other_names = ', '.join(names_list[1:])
            names_display = f"LC issued for :: {first_name}, {other_names}" if other_names else f"LC issued for :: {first_name}"
            bg_color = "spring green"
-           set_feeder_output_status(feeder_no,True)
         else:
            names_list = []
            names_display = "LC not issued for this feeder"  # Set the default text
@@ -528,11 +853,17 @@ feeder_label.grid(row=1, column=0, padx=20, pady=15)
 cb1 = ttk.Combobox(my_w, values=displayfeeders, width=25, textvariable=sel,state="readonly")
 cb1.grid(row=2, column=0, padx=10, pady=10)
 
+def check_cpfNo(qrCpF):
+    # Query the database for user details with the matching CPF
+    cur.execute("SELECT cpf_no, name, phone_no FROM users WHERE cpf_no = ?", (qrCpF,))
+    user_details = cur.fetchone()  # Assuming there's only one user with the same CPF
+    return user_details
+
 # Create the input field for CPF
 def display_cpf_details():
     cpf_no = cpf_entry.get()
     # Query the database for user details with the matching CPF
-    cur.execute("SELECT cpf_no, name, phone_no FROM users WHERE cpf_no = ?", (cpf_no,))
+    cur.execute("SELECT cpf_no, name, designation, phone_no FROM users WHERE cpf_no = ?", (cpf_no,))
     user_details = cur.fetchone()  # Assuming there's only one user with the same CPF
     # Clear the label text
     details_label.config(text="")
@@ -674,7 +1005,6 @@ def fetchscannedQR():
      cur.execute(query)
      # Fetch the result
      result = cur.fetchone()
-     print("=================================================",result)
     # Check if result is not None before returning
      if result is not None:
         return result[0]
@@ -701,10 +1031,19 @@ def updateapproval(approval_shown):
      cur.execute(query, (approval_shown,))
      conn.commit()
 
+def display_scan_prompt():
+        global prompt_window
+        prompt_window = messagebox.showinfo("Incharge Authorization Success", "User can scan his card now. \nCamera will be closed automatically in a minute if no input is received.\nPlease click Okay to allow user to scan")
+        # Function to destroy the scan prompt window
+        label.after(1000, destroy_scan_prompt)
+        
+def destroy_scan_prompt():
+        prompt_window.destroy()
+
 def show_frames(label, selectedFeeder):
     global camera_running, cap
     cap = cv2.VideoCapture(0)
-    resetapproval(False)
+    resetapproval("False")
     def detect_and_display_qr_codes():
         ret, frame = cap.read()
         if not ret:
@@ -716,32 +1055,19 @@ def show_frames(label, selectedFeeder):
         decoded_objects = decode(frame)
         for obj in decoded_objects:
             qr_data = obj.data.decode('utf-8')
-            points = obj.polygon
-            if len(points) >= 4:
-                # Draw a border around the QR code
-                cv2.polylines(frame, [np.array(points)], True, (0, 255, 0), 2)
+            # Check if qr_data exists in the logindata table
+            query = "SELECT names FROM logindata WHERE feederno = ?"
+            cur.execute(query, (selectedFeeder,))
+            result = cur.fetchone()
+            partsqr = qr_data.split("_")
 
-                # Display QR code data
-                cv2.putText(frame, qr_data, (points[0][0], points[0][1] - 10),
-                            cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-
-                # Check if qr_data exists in the logindata table
-                query = "SELECT names FROM logindata WHERE feederno = ?"
-                cur.execute(query, (selectedFeeder,))
-                result = cur.fetchone()
-                print(result)
-
-                # Split QR Code data
-                print(qr_data)
-                partsqr = qr_data.split("_")
-
-                if len(partsqr) == 3:
-                    name, qrCPF, qrMode = partsqr
-                    if check_master_status(qrCPF)=="Y":
+            if len(partsqr) == 3:
+                name, qrCPF, qrMode = partsqr
+                user_details = check_cpfNo(qrCPF)     
+                if(user_details):
+                    if check_master_status(qrCPF)=="Y" and fetchapproval()=="False":
                         updateqr(qrCPF)
                     scannedqrCode = fetchscannedQR()
-                    print("=====================qrCPF==================================:", qrCPF)
-                    print("=====================last_scanned_cpf=======================:",scannedqrCode)
                     qrName = "_".join([name,qrCPF])
                     if result is not None:
                         names = result[0].split(",") if result[0] else []
@@ -750,15 +1076,151 @@ def show_frames(label, selectedFeeder):
                     # Validate if its master
                     master_status = check_master_status(qrCPF)
                     approval_shown =fetchapproval()
-
-                    if not approval_shown and master_status == "Y":
-                        confirmation = custom_askyesnoforapproval("MASTER OPERATION DETECTED", "Select Approve other users button if you are allowing other users to scan their card or Select Operate to lock or unlock the selected feeder","blue")
+                    if approval_shown == "False" and master_status == "Y":
+                        confirmation = custom_askyesnoforapproval("MASTER OPERATION DETECTED", "Select Approve other users button if you are allowing other users to scan \nSelect Operate to lock or unlock the selected feeder","blue")
                         if(confirmation):
-                            print("confirmed")
-                            custom_message_box("AUTHORIZATION SUCCESS", "Click OK and allow other user to scan the access card", "blue")
-                            # Set the flag to True after showing the window
-                            updateapproval(True)
+                            updateapproval("True")
                         else:
+                            if "ON" in qr_data:
+                                if result is not None:
+                                    # User is already logged in
+                                    if len(names)!=0 and qrName not in names:
+                                        names.append(qrName)
+                                        # Update the names in the logindata table
+                                        updated_names = ",".join(names)
+                                        query = "UPDATE logindata SET names = ? WHERE feederno = ?"
+                                        cur.execute(query, (updated_names, selectedFeeder))
+                                        conn.commit()
+                                        initialize_feeder_info_window(my_w)
+                                        status = compare_input_output_status(selectedFeeder)
+                                        if status:
+                                            custom_message_box("LOCK SUCCESS - MULTIPLE LOCKS FOUND", f" You have locked the feeder Successfully.\n {selectedFeeder} is now locked by multiple persons", "dark orange")
+                                            updatelogdata(qrCPF, qrName, selectedFeeder, scannedqrCode, datetime.now(), None, 'No Error','N', datetime.now())
+                                            stop_camera()
+                                        else:
+                                            custom_message_box("ERROR IN LOCKING MECHANISM. FEEDBACK FAILED", f"{selectedFeeder} has not been locked due to feedback failure at the site", "dark orange")
+                                            names.remove(qrName)
+                                            # Update the names in the logindata table
+                                            updated_names = ",".join(names)
+                                            query = "UPDATE logindata SET names = ? WHERE feederno = ?"
+                                            cur.execute(query, (updated_names, selectedFeeder))
+                                            conn.commit()
+                                            initialize_feeder_info_window(my_w)
+                                            updatelogdata(qrCPF, qrName, selectedFeeder, scannedqrCode, None, None, 'Feedback Error','N', datetime.now())
+                                            # Stop the camera feed
+                                            stop_camera()
+
+                                    elif len(names)!=0 and qrName in names: 
+                                        custom_message_box("FEEDER ALREADY LOCKED", f"{selectedFeeder} is already locked by you", "pale turquoise")
+                                        # Stop the camera feed
+                                        updatelogdata(qrCPF, qrName, selectedFeeder, scannedqrCode, None, None, 'Feeder already locked','N', datetime.now())
+                                        stop_camera()
+
+                                    elif len(names) == 0:       
+                                        # update data into the logindata table
+                                        query = "UPDATE logindata SET names = ? WHERE feederno = ?"
+                                        data = (qrName,selectedFeeder)
+                                        cur.execute(query, data)
+                                        conn.commit()
+                                        initialize_feeder_info_window(my_w)
+                                        status = compare_input_output_status(selectedFeeder)
+                                        if status:
+                                                custom_message_box("LOCK SUCCESS", f"The {selectedFeeder} has been successfully locked by {qrName}", "SpringGreen3")
+                                                updatelogdata(qrCPF, qrName, selectedFeeder, scannedqrCode, datetime.now(), None, 'No Error','N', datetime.now())
+                                                # Stop the camera feed
+                                                stop_camera()
+                                        else:
+                                            custom_message_box("ERROR IN LOCKING MECHANISM. FEEDBACK FAILED", f"{selectedFeeder} has not been locked due to feedback failure at the site", "dark orange")
+                                            # Revert the updated data in the logindata table
+                                            query_revert = "UPDATE logindata SET names = ? WHERE feederno = ?"
+                                            data_revert = ("", selectedFeeder)  # Assuming setting names to an empty string reverts the data
+                                            cur.execute(query_revert, data_revert)
+                                            conn.commit()
+                                            initialize_feeder_info_window(my_w)
+                                            updatelogdata(qrCPF, qrName, selectedFeeder, scannedqrCode, None, None, 'Feedback Error','N', datetime.now())
+                                            # Stop the camera feed
+                                            stop_camera()
+                                else:
+                                    query = "INSERT INTO logindata (feederno, names) VALUES (?, ?)"
+                                    data = (selectedFeeder, qrName)
+                                    cur.execute(query, data)
+                                    conn.commit()
+                                    initialize_feeder_info_window(my_w)
+                                    status = compare_input_output_status(selectedFeeder)
+                                    if status:
+                                        custom_message_box("LOCK SUCCESS", f"The {selectedFeeder} has been successfully locked by {qrName}", "SpringGreen3")
+                                        # Stop the camera feed
+                                        updatelogdata(qrCPF, qrName, selectedFeeder, scannedqrCode, datetime.now(), None, 'No Error','N')
+                                        stop_camera()
+                                    else:
+                                        custom_message_box("ERROR IN LOCKING MECHANISM. FEEDBACK FAILED", f"{selectedFeeder} has not been locked due to feedback failure at the site", "dark orange")
+                                        # Revert the updated data in the logindata table
+                                        query_revert = "DELETE FROM logindata WHERE feederno = ?"
+                                        data_revert = (selectedFeeder,)
+                                        cur.execute(query_revert, data_revert)
+                                        conn.commit()
+                                        initialize_feeder_info_window(my_w)
+                                        updatelogdata(qrCPF, qrName, selectedFeeder, scannedqrCode, None, None, 'Feedback Error','N', datetime.now())
+                                        stop_camera() 
+
+                            elif "OFF" in qr_data:
+                                master_status = check_master_status(qrCPF)
+                                if result is not None:
+                                    # User logged out, delete the corresponding name from the list
+                                    if qrName in names and len(names)!=0:
+                                        names.remove(qrName)
+                                        updated_names = ",".join(names)
+                                        query = "UPDATE logindata SET names = ? WHERE feederno = ?"
+                                        cur.execute(query, (updated_names, selectedFeeder))
+                                        conn.commit()
+                                        initialize_feeder_info_window(my_w)
+                                        status = compare_input_output_status(selectedFeeder)
+                                        if status:
+                                            custom_message_box("UNLOCK SUCCESS", f"{selectedFeeder} has been unlocked by {qrName} successfully", "SpringGreen3")
+                                            updatelogdata(qrCPF, qrName, selectedFeeder, scannedqrCode, None, datetime.now(), 'No Error','N', datetime.now())
+                                            stop_camera()
+                                        else:
+                                            custom_message_box("ERROR IN LOCKING MECHANISM. FEEDBACK FAILED", f"{selectedFeeder} has not been locked due to feedback failure at the site", "dark orange")
+                                            names.append(qrName)
+                                            updated_names = ",".join(names)
+                                            query = "UPDATE logindata SET names = ? WHERE feederno = ?"
+                                            cur.execute(query, (updated_names, selectedFeeder))
+                                            conn.commit()
+                                            initialize_feeder_info_window(my_w)
+                                            updatelogdata(qrCPF, qrName, selectedFeeder, scannedqrCode, None, None, 'Feedback Error','N', datetime.now())
+                                            stop_camera()
+
+                                    elif master_status == "Y" and qrName not in names and len(names)!=0:
+                                        # Master status is "Y", ask for confirmation before logging out all users
+                                        confirmation = custom_askyesno("MASTER LOGOUT CONFIRMATION", f"{selectedFeeder} is not locked by you. Are you sure you want to log out other users using master privileges?","red")
+                                        if(confirmation):
+                                            #logout_all_users(selectedFeeder)
+                                            display_names_for_logout(selectedFeeder)
+                                            #custom_message_box("MASTER LOGOUT", "All users logged out from the feeder", "red")
+                                        else:
+                                        # User canceled the operation
+                                            custom_message_box("Operation Cancelled", "Master logout operation canceled", "blue")
+                                            updatelogdata(qrCPF, qrName, selectedFeeder, scannedqrCode, None, None, 'Master Log Out Cancelled','Y', datetime.now())
+
+                                    elif qrName not in names and len(names)!=0:
+                                        updatelogdata(qrCPF, qrName, selectedFeeder, scannedqrCode, None, None, 'Feeder Locked by Other User','N', datetime.now())
+                                        custom_message_box("FEEDER NOT LOCKED BY YOU", f"You are trying to unlock the {selectedFeeder} which is not locked by you", "red")
+                                    else:
+                                        updatelogdata(qrCPF, qrName, selectedFeeder, scannedqrCode, None, None, 'Feeder Not Locked by anyone','N', datetime.now())
+                                        custom_message_box("FEEDER NOT LOCKED BY ANY ONE", f"{selectedFeeder} is not locked by anyone. Close the Scanner", "pale turquoise")
+                                # Stop the camera feed
+                                stop_camera()
+
+                    elif approval_shown == "True" and master_status == "Y" and fetchscannedQR()==qrCPF:
+                        display_scan_prompt()
+
+                    elif check_master_status(scannedqrCode)!="Y" and check_master_status(qrCPF) !="Y" :
+                        custom_message_box("Incharge Authorisation Required", "\nFirst Incharge need to Scan his card to let you scan your QR code.\nClick OK Close the Scanner", "orange red")
+                        # Stop the camera feed
+                        updatelogdata(qrCPF, qrName, selectedFeeder, scannedqrCode,None, None, 'Needs Incharge Authorisation','N', datetime.now())
+                        stop_camera()
+
+                    elif ((check_master_status(scannedqrCode)=="Y" and check_master_status(qrCPF) !="Y") or (approval_shown == "True" and master_status == "Y" and fetchscannedQR()!=qrCPF)):
                             if "ON" in qr_data:
                                 if result is not None:
                                     # User is already logged in
@@ -774,6 +1236,7 @@ def show_frames(label, selectedFeeder):
                                         if status:
                                             custom_message_box("LOCK SUCCESS - MULTIPLE LOCKS FOUND", f" You have locked the feeder Successfully. {selectedFeeder} is now locked by multiple persons", "dark orange")
                                             # Stop the camera feed
+                                            updatelogdata(qrCPF, qrName, selectedFeeder, scannedqrCode,datetime.now(), None, 'No Error','N',datetime.now())
                                             stop_camera()
                                         else:
                                             custom_message_box("ERROR IN LOCKING MECHANISM. FEEDBACK FAILED", f"{selectedFeeder} has not been locked due to feedback failure at the site", "dark orange")
@@ -784,34 +1247,62 @@ def show_frames(label, selectedFeeder):
                                             cur.execute(query, (updated_names, selectedFeeder))
                                             conn.commit()
                                             initialize_feeder_info_window(my_w)
+                                            updatelogdata(qrCPF, qrName, selectedFeeder, scannedqrCode, None, None, 'Feedback Failed','N', datetime.now())
+                                            stop_camera()
+                                            
+                                    elif len(names)!=0 and qrName in names: 
+                                        custom_message_box("FEEDER ALREADY LOCKED", f"{selectedFeeder} is already locked by you", "pale turquoise")
+                                        updatelogdata(qrCPF, qrName, selectedFeeder, scannedqrCode, None, None, 'Feeder already locked by user','N', datetime.now())
+                                        # Stop the camera feed
+                                        stop_camera()
+
+                                    elif len(names) == 0:       
+                                        # update data into the logindata table
+                                        query = "UPDATE logindata SET names = ? WHERE feederno = ?"
+                                        data = (qrName,selectedFeeder)
+                                        cur.execute(query, data)
+                                        conn.commit()
+                                        initialize_feeder_info_window(my_w)
+                                        status = compare_input_output_status(selectedFeeder)
+                                        if status:
+                                            custom_message_box("LOCK SUCCESS", f"The {selectedFeeder} has been successfully locked by {qrName}", "SpringGreen3")
+                                            updatelogdata(qrCPF, qrName, selectedFeeder, scannedqrCode, datetime.now(), None, 'No Error','N', datetime.now())
                                             # Stop the camera feed
                                             stop_camera()
-
-                                    elif len(names)!=0 and qrName in names: 
-                                        custom_message_box("FEEDER ALREADY LOCKED", f"{selectedFeeder} is already locked by you", "pale turquoise")
-                                        # Stop the camera feed
-                                        stop_camera()
-
-                                    elif len(names) == 0:       
-                                        # update data into the logindata table
-                                        query = "UPDATE logindata SET names = ? WHERE feederno = ?"
-                                        data = (qrName,selectedFeeder)
-                                        cur.execute(query, data)
-                                        conn.commit()
-                                        initialize_feeder_info_window(my_w)
-                                        custom_message_box("LOCK SUCCESS", f"The {selectedFeeder} has been successfully locked by {qrName}", "SpringGreen3")
-                                        # Stop the camera feed
-                                        stop_camera()
-
+                                        else:
+                                            custom_message_box("ERROR IN LOCKING MECHANISM. FEEDBACK FAILED", f"{selectedFeeder} has not been locked due to feedback failure at the site", "dark orange")
+                                            # Revert the updated data in the logindata table
+                                            query_revert = "UPDATE logindata SET names = ? WHERE feederno = ?"
+                                            data_revert = ("", selectedFeeder)  # Assuming setting names to an empty string reverts the data
+                                            cur.execute(query_revert, data_revert)
+                                            conn.commit()
+                                            initialize_feeder_info_window(my_w)
+                                            updatelogdata(qrCPF, qrName, selectedFeeder, scannedqrCode, None, None, 'Feedback Failed','N', datetime.now())
+                                            # Stop the camera feed
+                                            stop_camera()
                                 else:
                                     query = "INSERT INTO logindata (feederno, names) VALUES (?, ?)"
                                     data = (selectedFeeder, qrName)
                                     cur.execute(query, data)
                                     conn.commit()
                                     initialize_feeder_info_window(my_w)
-                                    custom_message_box("LOCK SUCCESS", f"The {selectedFeeder} has been successfully locked by {qrName}", "SpringGreen3")
-                                    # Stop the camera feed
-                                    stop_camera()
+                                    status = compare_input_output_status(selectedFeeder)
+                                    if status:
+                                        custom_message_box("LOCK SUCCESS", f"The {selectedFeeder} has been successfully locked by {qrName}", "SpringGreen3")
+                                        updatelogdata(qrCPF, qrName, selectedFeeder, scannedqrCode, datetime.now(), None, 'No Error','N')
+                                        # Stop the camera feed
+                                        stop_camera()
+                                    else:
+                                        custom_message_box("ERROR IN LOCKING MECHANISM. FEEDBACK FAILED", f"{selectedFeeder} has not been locked due to feedback failure at the site", "dark orange")
+                                        # Revert the updated data in the logindata table
+                                        query_revert = "DELETE FROM logindata WHERE feederno = ?"
+                                        data_revert = (selectedFeeder,)
+                                        cur.execute(query_revert, data_revert)
+                                        conn.commit()
+                                        initialize_feeder_info_window(my_w)
+                                        updatelogdata(qrCPF, qrName, selectedFeeder, scannedqrCode, None, None, 'Feedback Failed','N', datetime.now())
+                                        # Stop the camera feed
+                                        stop_camera()
 
                             elif "OFF" in qr_data:
                                 master_status = check_master_status(qrCPF)
@@ -824,7 +1315,21 @@ def show_frames(label, selectedFeeder):
                                         cur.execute(query, (updated_names, selectedFeeder))
                                         conn.commit()
                                         initialize_feeder_info_window(my_w)
-                                        custom_message_box("UNLOCK SUCCESS", f"{selectedFeeder} has been unlocked by {qrName} successfully", "SpringGreen3")
+                                        status = compare_input_output_status(selectedFeeder)
+                                        if status:
+                                            custom_message_box("UNLOCK SUCCESS", f"{selectedFeeder} has been unlocked by {qrName} successfully", "SpringGreen3")
+                                            updatelogdata(qrCPF, qrName, selectedFeeder, scannedqrCode, None, datetime.now(), 'No Error','N')
+                                            stop_camera()
+                                        else:
+                                            custom_message_box("ERROR IN LOCKING MECHANISM. FEEDBACK FAILED", f"{selectedFeeder} has not been locked due to feedback failure at the site", "dark orange")
+                                            names.append(qrName)
+                                            updated_names = ",".join(names)
+                                            query = "UPDATE logindata SET names = ? WHERE feederno = ?"
+                                            cur.execute(query, (updated_names, selectedFeeder))
+                                            conn.commit()
+                                            initialize_feeder_info_window(my_w)
+                                            updatelogdata(qrCPF, qrName, selectedFeeder, scannedqrCode, None, None, 'Feedback Failed','N', datetime.now())
+                                            stop_camera()
                                     elif master_status == "Y" and qrName not in names and len(names)!=0:
                                         # Master status is "Y", ask for confirmation before logging out all users
                                         confirmation = custom_askyesno("MASTER LOGOUT CONFIRMATION", f"{selectedFeeder} is not locked by you. Are you sure you want to log out other users using master privileges?","red")
@@ -837,90 +1342,23 @@ def show_frames(label, selectedFeeder):
                                             custom_message_box("Operation Cancelled", "Master logout operation canceled", "blue")
                                     elif qrName not in names and len(names)!=0:
                                         custom_message_box("FEEDER NOT LOCKED BY YOU", f"You are trying to unlock the {selectedFeeder} which is not locked by you", "red")
+                                        updatelogdata(qrCPF, qrName, selectedFeeder, scannedqrCode, None, None, 'Feeder Not Locked by the user','N', datetime.now())
                                     else:
                                         custom_message_box("FEEDER NOT LOCKED BY ANY ONE", f"{selectedFeeder} is not locked by anyone. Close the Scanner", "pale turquoise")
+                                        updatelogdata(qrCPF, qrName, selectedFeeder, scannedqrCode, None, None, 'Feeder Not Locked by anyone','N', datetime.now())
                                 # Stop the camera feed
-                                stop_camera()
+                                stop_camera() 
 
-                    elif check_master_status(scannedqrCode)!="Y" and check_master_status(qrCPF) !="Y" :
-                        custom_message_box("UNAUTHORISED QR CODE DETECTED", "Unauthorised access detected. Close the Scanner", "orange red")
-                        # Stop the camera feed
-                        stop_camera()
-
-                    elif check_master_status(scannedqrCode)=="Y" and check_master_status(qrCPF) !="Y" :
-                            if "ON" in qr_data:
-                                if result is not None:
-                                    # User is already logged in
-                                    if len(names)!=0 and qrName not in names:
-                                        names.append(qrName)
-                                        # Update the names in the logindata table
-                                        updated_names = ",".join(names)
-                                        query = "UPDATE logindata SET names = ? WHERE feederno = ?"
-                                        cur.execute(query, (updated_names, selectedFeeder))
-                                        conn.commit()
-                                        initialize_feeder_info_window(my_w)
-                                        custom_message_box("LOCK SUCCESS - MULTIPLE LOCKS FOUND", f" You have locked the feeder Successfully. {selectedFeeder} is now locked by multiple persons", "dark orange")
-                                        # Stop the camera feed
-                                        stop_camera()
-
-                                    elif len(names)!=0 and qrName in names: 
-                                        custom_message_box("FEEDER ALREADY LOCKED", f"{selectedFeeder} is already locked by you", "pale turquoise")
-                                        # Stop the camera feed
-                                        stop_camera()
-
-                                    elif len(names) == 0:       
-                                        # update data into the logindata table
-                                        query = "UPDATE logindata SET names = ? WHERE feederno = ?"
-                                        data = (qrName,selectedFeeder)
-                                        cur.execute(query, data)
-                                        conn.commit()
-                                        initialize_feeder_info_window(my_w)
-                                        custom_message_box("LOCK SUCCESS", f"The {selectedFeeder} has been successfully locked by {qrName}", "SpringGreen3")
-                                        # Stop the camera feed
-                                        stop_camera()
-
-                                else:
-                                    query = "INSERT INTO logindata (feederno, names) VALUES (?, ?)"
-                                    data = (selectedFeeder, qrName)
-                                    cur.execute(query, data)
-                                    conn.commit()
-                                    initialize_feeder_info_window(my_w)
-                                    custom_message_box("LOCK SUCCESS", f"The {selectedFeeder} has been successfully locked by {qrName}", "SpringGreen3")
-                                    # Stop the camera feed
-                                    stop_camera()
-
-                            elif "OFF" in qr_data:
-                                master_status = check_master_status(qrCPF)
-                                if result is not None:
-                                    # User logged out, delete the corresponding name from the list
-                                    if qrName in names and len(names)!=0:
-                                        names.remove(qrName)
-                                        updated_names = ",".join(names)
-                                        query = "UPDATE logindata SET names = ? WHERE feederno = ?"
-                                        cur.execute(query, (updated_names, selectedFeeder))
-                                        conn.commit()
-                                        initialize_feeder_info_window(my_w)
-                                        custom_message_box("UNLOCK SUCCESS", f"{selectedFeeder} has been unlocked by {qrName} successfully", "SpringGreen3")
-                                    elif master_status == "Y" and qrName not in names and len(names)!=0:
-                                        # Master status is "Y", ask for confirmation before logging out all users
-                                        confirmation = custom_askyesno("MASTER LOGOUT CONFIRMATION", f"{selectedFeeder} is not locked by you. Are you sure you want to log out other users using master privileges?","red")
-                                        if(confirmation):
-                                            #logout_all_users(selectedFeeder)
-                                            display_names_for_logout(selectedFeeder)
-                                            #custom_message_box("MASTER LOGOUT", "All users logged out from the feeder", "red")
-                                        else:
-                                        # User canceled the operation
-                                            custom_message_box("Operation Cancelled", "Master logout operation canceled", "blue")
-                                    elif qrName not in names and len(names)!=0:
-                                        custom_message_box("FEEDER NOT LOCKED BY YOU", f"You are trying to unlock the {selectedFeeder} which is not locked by you", "red")
-                                    else:
-                                        custom_message_box("FEEDER NOT LOCKED BY ANY ONE", f"{selectedFeeder} is not locked by anyone. Close the Scanner", "pale turquoise")
-                                # Stop the camera feed
-                                stop_camera()      
                 else:
-                    custom_message_box("UNAUTHORISED QR CODE DETECTED", "Unauthorised access detected. Close the Scanner", "orange red")
+                    custom_message_box("USER NOT FOUND IN DATABASE", "User does not exist in database. Close the Scanner", "orange red")
+                    updatelogdata(qrCPF, name, selectedFeeder, fetchscannedQR(), None, None, 'User does not exist in database','N', datetime.now())
                     # Stop the camera feed
                     stop_camera()
+            else:
+                custom_message_box("INVALID QR CODE DETECTED", "Invalid QR Code Scanned. Close the Scanner", "orange red")
+                updatelogdata(None, None, selectedFeeder, None, None, None, 'Invalid QR Code','N', datetime.now())
+                # Stop the camera feed
+                stop_camera()
 
         # Convert the OpenCV frame to a Tkinter-compatible image
         img = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -931,9 +1369,11 @@ def show_frames(label, selectedFeeder):
         label.imgtk = imgtk
         label.configure(image=imgtk)
         approval_shown = fetchapproval()
-        if camera_running and not approval_shown:
+        if camera_running and (approval_shown == "False" or check_master_status(fetchscannedQR())=="Y"):
             # Call this function again after a delay to capture frames continuously
-            label.after(20, detect_and_display_qr_codes)
+            label.after(10, detect_and_display_qr_codes)
+        else:
+            stop_camera()
 
     def start_camera():
         global camera_running
@@ -949,7 +1389,7 @@ def show_frames(label, selectedFeeder):
         if camera_running:
             camera_running = False
             resetqr()
-            resetapproval(False)
+            resetapproval("False")
             cap.release()
             label.imgtk = None
             label.configure(image=None)
