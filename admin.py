@@ -9,9 +9,14 @@ conn = sqlite3.connect('ilcst.db')
 cur = conn.cursor()
 
 def show_camera(window):
+    global cap
     cap = cv2.VideoCapture(0)
     label = tk.Label(window)
     label.pack()
+    def on_close():
+        stop_camera(window)
+
+    window.protocol("WM_DELETE_WINDOW", on_close)
 
     def detect_and_display_qr_codes():
         ret, frame = cap.read()
@@ -29,11 +34,11 @@ def show_camera(window):
            master_status = check_master_status(qrCPF)
            if master_status == 'Y':
                 update_user()
-                stop_camera()
+                stop_camera(window)
            else:
                 print("Master Status is N")
                 custom_message_box("UPDATE FAILED", f" You do not have In-Charge Privileges to update the master flag", "dark orange")
-                stop_camera()
+                stop_camera(window)
 
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         img = Image.fromarray(frame)
@@ -49,10 +54,10 @@ def show_camera(window):
 
     detect_and_display_qr_codes()
 
-def stop_camera():
+def stop_camera(window):
     if 'cap' in globals():
         cap.release()
-    root.after(10, root.destroy)
+    window.destroy()
 
 def start_camera_for_update():
     new_window = tk.Toplevel(root)
@@ -142,7 +147,6 @@ def get_user():
     cur.execute("SELECT * FROM users WHERE cpf_no=?", (cpf,))
     user_details = cur.fetchone()
     if user_details:
-        # Display user details for updating
         entry_cpf_update.delete(0, tk.END)
         entry_cpf_update.insert(0, user_details[0])  # Display CPF
         entry_name_update.delete(0, tk.END)
@@ -154,12 +158,15 @@ def get_user():
         entry_master_update.delete(0, tk.END)
         entry_master_update.insert(0, user_details[4])  # Display master
         status_label_update.config(text="")
+        update_submit_button.config(state=tk.NORMAL)  # Enable the button
     else:
         entry_name_update.delete(0, tk.END)
         entry_designation_update.delete(0, tk.END)
         entry_phone_update.delete(0, tk.END)
         entry_master_update.delete(0, tk.END)
         status_label_update.config(text="User not found!", fg="red")
+        update_submit_button.config(state=tk.DISABLED)  # Keep the button disabled
+
 
 def update_user():
     cpf = entry_cpf_update.get()
@@ -175,12 +182,12 @@ def update_user():
     custom_message_box("UPDATE SUCCESS", f" You have successfully updated user details", "blue")
     status_label_update.config(text="User details updated!", fg="green")
 
+
 def delete_user():
     cpf = entry_cpf_delete.get()
     cur.execute("SELECT * FROM users WHERE cpf_no=?", (cpf,))
     user_details = cur.fetchone()
     if user_details:
-        # Display user details for deletion
         entry_cpf_delete.delete(0, tk.END)
         entry_cpf_delete.insert(0, user_details[0])  # Display CPF
         entry_name_delete.delete(0, tk.END)
@@ -192,13 +199,14 @@ def delete_user():
         entry_master_delete.delete(0, tk.END)
         entry_master_delete.insert(0, user_details[4])  # Display master
         status_label_delete.config(text="")
+        delete_submit_button.config(state=tk.NORMAL)  # Enable the button
     else:
-        # Clear the entry fields
         entry_name_delete.delete(0, tk.END)
         entry_designation_delete.delete(0, tk.END)
         entry_phone_delete.delete(0, tk.END)
         entry_master_delete.delete(0, tk.END)
         status_label_delete.config(text="User not found!", fg="red")
+        delete_submit_button.config(state=tk.DISABLED)  # Keep the button disabled
 
 def confirm_delete():
     cpf = entry_cpf_delete.get()
@@ -246,6 +254,8 @@ if __name__ == "__main__":
     label_master = tk.Label(frame_add_user, text="Master:")
     label_master.grid(row=5, column=0)
     entry_master = tk.Entry(frame_add_user)
+    entry_master.insert(0, 'N')  # Set default value to 'N'
+    entry_master.config(state='disabled')  # Make the entry non-editable
     entry_master.grid(row=5, column=1)
 
     status_label_add = tk.Label(frame_add_user, text="")
@@ -292,7 +302,7 @@ if __name__ == "__main__":
     status_label_update = tk.Label(frame_update_user, text="")
     status_label_update.grid(row=7, columnspan=2)
 
-    update_submit_button = tk.Button(frame_update_user, text="Update User", command=start_camera_for_update)
+    update_submit_button = tk.Button(frame_update_user, text="Update User", command=start_camera_for_update, state=tk.DISABLED)
     update_submit_button.grid(row=8, columnspan=2)
 
     # Delete User Section
@@ -333,7 +343,7 @@ if __name__ == "__main__":
     status_label_delete = tk.Label(frame_delete_user, text="")
     status_label_delete.grid(row=7, columnspan=2)
 
-    delete_submit_button = tk.Button(frame_delete_user, text="Delete User", command=confirm_delete)
+    delete_submit_button = tk.Button(frame_delete_user, text="Delete User", command=confirm_delete, state=tk.DISABLED)
     delete_submit_button.grid(row=8, columnspan=2)
 
 
