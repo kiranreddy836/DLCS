@@ -305,15 +305,11 @@ def open_admin_window():
     delete_submit_button.grid(row=8, columnspan=2)
 
     # Note label at the bottom
-    note_label = tk.Label(admin_window, text="    NOTE: Master privilege for an user can be updated only through admin portal only. ", pady=10, font=("Arial", 10, "bold"))
+    note_label = tk.Label(admin_window, text="    NOTE: In-charge privilege for an user can be updated only through admin portal. ", pady=10, font=("Arial", 10, "bold"))
     note_label.grid(row=5, column=0, columnspan=3, sticky="ew")  # Positioned at the bottom
 
-    # Function to close the window
-    def close_window():
-        admin_window.destroy()
-
     # Close button for the window
-    close_button = tk.Button(admin_window, text="Close Admin Window", command=close_window)
+    close_button = tk.Button(admin_window, text="Close Admin Window", command=on_window_close)
     close_button.grid(row=2, column=0, columnspan=3, pady=10)
 
     admin_window.columnconfigure(0, weight=1)  # Ensures horizontal centering of the label
@@ -418,6 +414,34 @@ def display_header(root):
     except FileNotFoundError:
         print("Logo image not found. Make sure the image file exists.")
 
+    image_filename2="CMD.png"
+    # Load the image for the extreme right
+    try:
+        right_image = Image.open(image_filename2)  # Replace with your image path
+        right_image = right_image.resize((90, 100))  # Adjust size as needed
+        right_photo = ImageTk.PhotoImage(right_image)
+        right_label = tk.Label(header_frame, image=right_photo, bg="RoyalBlue4")
+        right_label.image = right_photo  # Keep a reference to avoid garbage collection
+        
+        # Position the right image to the right of the title label
+        right_label.place(relx=0.92, rely=0.49, anchor="e")  # Adjust position as needed
+    except FileNotFoundError:
+        print("Image not found. Make sure the image file exists.")
+
+    image_filename2="D-M.png"
+    # Load the image for the extreme right
+    try:
+        right_image = Image.open(image_filename2)  # Replace with your image path
+        right_image = right_image.resize((90, 100))  # Adjust size as needed
+        right_photo = ImageTk.PhotoImage(right_image)
+        right_label = tk.Label(header_frame, image=right_photo, bg="RoyalBlue4")
+        right_label.image = right_photo  # Keep a reference to avoid garbage collection
+        
+        # Position the right image to the right of the title label
+        right_label.place(relx=0.99, rely=0.49, anchor="e")  # Adjust position as needed
+    except FileNotFoundError:
+        print("Image not found. Make sure the image file exists.")
+
     # Title
     title_label = ttk.Label(header_frame, text="DIGITALIZED LINE CLEARANCE SYSTEM", font=("Times New Roman", 25, 'bold'), background="RoyalBlue4",foreground="white")
     title_label.place(relx=0.5, rely=0.4, anchor="center")
@@ -427,9 +451,13 @@ def display_header(root):
                        background='RoyalBlue4', foreground="white",
                        font=("Times New Roman", 17, 'bold'))
     unit_label.place(relx=0.5, rely=0.8, anchor="center")
+    # Footer Label
+    footer_label = tk.Label(my_w, text="DEVELOPED AND INTEGRATED BY MINE 1A ELECTRICAL BASE", bg="burlywood1", fg="black", font=("Arial", 12, "bold"))
+    footer_label.place(relx=0.5, rely=0.92, anchor="center")
     # Admin Button
     admin_button = tk.Button(header_frame, text="Admin", command=open_admin_window, bg="white", fg="black")
     admin_button.grid(row=0, column=2, padx=10)  # Adjust column and padding as needed
+    admin_button.place(relx=0.085, rely=0.86, anchor="w")
 
 
 # Establish SQLITE Database Connection (If using SQLite3 -- Comment other connection modes if using SQLite)
@@ -462,7 +490,15 @@ def updatelogdata(qrCPF, qrName, selectedFeeder, scannedqrCode, login_time, logo
     cur.execute(insert_query, data_to_insert)
     conn.commit()
 
-# Function to stop the camera feed
+"""# Function to stop the camera feed
+def stop_camera():
+    global camera_running, cap
+    if camera_running:
+        camera_running = False
+        resetqr()
+        resetapproval("False")
+        cap.release()"""
+
 def stop_camera():
     global camera_running, cap
     if camera_running:
@@ -470,6 +506,14 @@ def stop_camera():
         resetqr()
         resetapproval("False")
         cap.release()
+        label.imgtk = None
+        label.configure(image=None)
+        sel.set("Select the Feeder") # Set the combo box value back to default
+        submitbutton.config(state="disabled")
+        cb1.focus_set()
+        for w in my_w.grid_slaves(row=5):  # all elements in row 5
+            w.grid_remove()  # delete elements
+
 
 # Function to enable or disable the "Select Feeder" combo box
 def set_combo_box_state(state):
@@ -569,6 +613,7 @@ def display_names_for_logout(selectedFeeder):
                     name_selection_window.destroy()
                     cb1.config(state="normal")
                     updatelogdata(fetchcpf(name_to_logout), name_to_logout, selectedFeeder, fetchscannedQR(), None, datetime.now(), 'No Error.This is a master logout','Y', datetime.now())
+                    stop_camera()
                 else:
                     custom_message_box("ERROR IN LOCKING MECHANISM. FEEDBACK FAILED", f"{selectedFeeder} has not been locked due to feedback failure at the site", "dark orange")
                     names_list.append(name_to_logout)
@@ -579,6 +624,7 @@ def display_names_for_logout(selectedFeeder):
                     initialize_feeder_info_window(my_w)
                     updatelogdata(fetchcpf(name_to_logout), name_to_logout, selectedFeeder, fetchscannedQR(), None, None, 'Feedback Error','Y', datetime.now())
                     cb1.config(state="normal")
+                    stop_camera()
 
         def close_select_logout_window():
             name_selection_window.destroy()
@@ -715,7 +761,7 @@ def initialize_feeder_info_window(parent):
     feeder_info_frame.place(relx=0.61, rely=0.18, relwidth=0.38, relheight=0.2)
 
     # Create label for Feeders Info Frame
-    label = tk.Label(feeder_info_frame, text="STATUS OF THE FEEDERS", font=("Times New Roman", 15, "bold"), background="yellow",foreground="red4")
+    label = tk.Label(feeder_info_frame, text="STATUS OF THE FEEDERS", font=("Times New Roman", 15, "bold"), background="pale turquoise",foreground="red4")
     label.pack()
 
     # Create a horizontal scrollbar for the treeview
@@ -785,10 +831,9 @@ def initialize_feeder_info_window(parent):
 
     # Calculate the maximum width needed for the "Locked By" column
     max_locked_by_width = max([len(name) for name in names_list], default=350)
-    print(max_locked_by_width)
     # Set the "Locked By" column width with some padding
     tree.column("FEEDER NO : ", width=100)
-    tree.column("LINE CLEARANCE STATUS", width=max_locked_by_width * 2)  # Adjust the multiplier as needed multiplier as needed
+    tree.column("LINE CLEARANCE STATUS", width=max_locked_by_width * 300)  # Adjust the multiplier as needed multiplier as needed
     tree.pack()
 
 def extract_cpf_no(name):
@@ -1034,11 +1079,7 @@ def updateapproval(approval_shown):
 def display_scan_prompt():
         global prompt_window
         prompt_window = messagebox.showinfo("Incharge Authorization Success", "User can scan his card now. \nCamera will be closed automatically in a minute if no input is received.\nPlease click Okay to allow user to scan")
-        # Function to destroy the scan prompt window
-        label.after(1000, destroy_scan_prompt)
-        
-def destroy_scan_prompt():
-        prompt_window.destroy()
+   
 
 def show_frames(label, selectedFeeder):
     global camera_running, cap
@@ -1078,12 +1119,12 @@ def show_frames(label, selectedFeeder):
                     approval_shown =fetchapproval()
 
                     if approval_shown == "False" and master_status == "Y":
-                        confirmation = custom_askyesnoforapproval("MASTER OPERATION DETECTED", "Select Approve other users button if you are allowing other users to scan \nSelect Operate to lock or unlock the selected feeder","blue")
+                        confirmation = custom_askyesnoforapproval("IN-CHARGE OPERATION DETECTED", "Select Approve other users button if you are allowing other users to scan \nSelect Operate Self button to lock or unlock the selected feeder","blue")
                         if(confirmation):
                             updateapproval("True")
                         else:
                             if "ON" in qr_data:
-                                confirmation = custom_askyesno("MASTER SELF LOG_IN OPERATION", "You have scanned to lock the feeder,\nClick Yes if you are going to lock the selected Feeder \nClick No button to cancel and exit","orange")    
+                                confirmation = custom_askyesno("IN-CHARGE SELF LOG_IN OPERATION", "You have scanned to lock the feeder,\nClick Yes if you are going to lock the selected Feeder \nClick No button to cancel and exit","orange")    
                                 if(confirmation):
                                     if result is not None:
                                         # User is already logged in
@@ -1166,12 +1207,12 @@ def show_frames(label, selectedFeeder):
                                             updatelogdata(qrCPF, qrName, selectedFeeder, scannedqrCode, None, None, 'Feedback Error','N', datetime.now())
                                             stop_camera()
                                 else:
-                                    custom_message_box("MASTER SELF LOG_IN OPERATION CANCELLED", "Master Self log_In operation canceled", "red")
-                                    updatelogdata(qrCPF, qrName, selectedFeeder, scannedqrCode, None, None, 'Master Log In Cancelled','Y', datetime.now())
+                                    custom_message_box("IN-CHARGE SELF LOG_IN OPERATION CANCELLED", "In-Charge Self log_In operation canceled", "red")
+                                    updatelogdata(qrCPF, qrName, selectedFeeder, scannedqrCode, None, None, 'In-Charge Log In Cancelled','Y', datetime.now())
                                     stop_camera()
 
                             elif "OFF" in qr_data:
-                                confirmation = custom_askyesno("MASTER SELF LOG_OUT OPERATION", "You have scanned for unlocking the feeder,\nClick Yes button if you are going to unlock the selected Feeder \nClick No button to cancel and exit","orange")    
+                                confirmation = custom_askyesno("IN-CHARGE SELF LOG_OUT OPERATION", "You have scanned for unlocking the feeder,\nClick Yes button if you are going to unlock the selected Feeder \nClick No button to cancel and exit","orange")    
                                 if(confirmation):
                                     master_status = check_master_status(qrCPF)
                                     if result is not None:
@@ -1199,36 +1240,37 @@ def show_frames(label, selectedFeeder):
                                                 updatelogdata(qrCPF, qrName, selectedFeeder, scannedqrCode, None, None, 'Feedback Error','N', datetime.now())
                                                 stop_camera()
 
-                                    elif master_status == "Y" and qrName not in names and len(names)!=0:
-                                        # Master status is "Y", ask for confirmation before logging out all users
-                                        confirmation = custom_askyesno("MASTER LOGOUT CONFIRMATION", f"{selectedFeeder} is not locked by you. Are you sure you want to log out other users using master privileges?","red")
-                                        if(confirmation):
-                                            #logout_all_users(selectedFeeder)
-                                            display_names_for_logout(selectedFeeder)
-                                            #custom_message_box("MASTER LOGOUT", "All users logged out from the feeder", "red")
-                                        else:
-                                        # User canceled the operation
-                                            custom_message_box("Operation Cancelled", "Master logout operation canceled", "blue")
-                                            updatelogdata(qrCPF, qrName, selectedFeeder, scannedqrCode, None, None, 'Master Log Out Cancelled','Y', datetime.now())
+                                        elif master_status == "Y" and qrName not in names and len(names)!=0:
+                                            # Master status is "Y", ask for confirmation before logging out all users
+                                            confirmation = custom_askyesno("IN-CHARGE LOGOUT CONFIRMATION", f"{selectedFeeder} is not locked by you. Are you sure you want to log out other users using in-charge privileges?","red")
+                                            if(confirmation):
+                                                #logout_all_users(selectedFeeder)
+                                                display_names_for_logout(selectedFeeder)
+                                                #custom_message_box("MASTER LOGOUT", "All users logged out from the feeder", "red")
+                                            else:
+                                                # User canceled the operation
+                                                custom_message_box("Operation Cancelled", "IN-CHARGE logout operation canceled", "blue")
+                                                updatelogdata(qrCPF, qrName, selectedFeeder, scannedqrCode, None, None, 'In-Charge Log Out Cancelled','Y', datetime.now())
+                                                stop_camera()
 
-                                    elif qrName not in names and len(names)!=0:
-                                        updatelogdata(qrCPF, qrName, selectedFeeder, scannedqrCode, None, None, 'Feeder Locked by Other User','N', datetime.now())
-                                        custom_message_box("FEEDER NOT LOCKED BY YOU", f"You are trying to unlock the {selectedFeeder} which is not locked by you", "red")
-                                    else:
-                                        updatelogdata(qrCPF, qrName, selectedFeeder, scannedqrCode, None, None, 'Feeder Not Locked by anyone','N', datetime.now())
-                                        custom_message_box("FEEDER NOT LOCKED BY ANY ONE", f"{selectedFeeder} is not locked by anyone. Close the Scanner", "pale turquoise")
-                                        # Stop the camera feed
-                                        stop_camera()
+                                        elif qrName not in names and len(names)!=0:
+                                            updatelogdata(qrCPF, qrName, selectedFeeder, scannedqrCode, None, None, 'Feeder Locked by Other User','N', datetime.now())
+                                            custom_message_box("FEEDER NOT LOCKED BY YOU", f"You are trying to unlock the {selectedFeeder} which is not locked by you", "red")
+                                        else:
+                                            updatelogdata(qrCPF, qrName, selectedFeeder, scannedqrCode, None, None, 'Feeder Not Locked by anyone','N', datetime.now())
+                                            custom_message_box("FEEDER NOT LOCKED BY ANY ONE", f"{selectedFeeder} is not locked by anyone. Close the Scanner", "pale turquoise")
+                                            # Stop the camera feed
+                                            stop_camera()
                                 else:
-                                    custom_message_box("MASTER SELF LOG_OUT OPERATION CANCELLED", "Master Self log_Out operation canceled", "red")
-                                    updatelogdata(qrCPF, qrName, selectedFeeder, scannedqrCode, None, None, 'Master Log Out Cancelled','Y', datetime.now())
+                                    custom_message_box("IN-CHARGE SELF LOG_OUT OPERATION CANCELLED", "In-Charge Self log_Out operation canceled", "red")
+                                    updatelogdata(qrCPF, qrName, selectedFeeder, scannedqrCode, None, None, 'In-Charge Log Out Cancelled','Y', datetime.now())
                                     stop_camera()
 
                     elif approval_shown == "True" and master_status == "Y" and fetchscannedQR()==qrCPF:
                         display_scan_prompt()
 
                     elif check_master_status(scannedqrCode)!="Y" and check_master_status(qrCPF) !="Y" :
-                        custom_message_box("Incharge Authorisation Required", "\nFirst Incharge need to Scan his card to let you scan your QR code.\nClick OK Close the Scanner", "orange red")
+                        custom_message_box("IN-CHARGE AUTHORIZATION REQUIRED", "\nFirst Incharge need to Scan his card to let you scan your QR code.\nClick OK Close the Scanner", "orange red")
                         # Stop the camera feed
                         updatelogdata(qrCPF, qrName, selectedFeeder, scannedqrCode,None, None, 'Needs Incharge Authorisation','N', datetime.now())
                         stop_camera()
@@ -1331,7 +1373,7 @@ def show_frames(label, selectedFeeder):
                                         status = compare_input_output_status(selectedFeeder)
                                         if status:
                                             custom_message_box("UNLOCK SUCCESS", f"{selectedFeeder} has been unlocked by {qrName} successfully", "SpringGreen3")
-                                            updatelogdata(qrCPF, qrName, selectedFeeder, scannedqrCode, None, datetime.now(), 'No Error','N')
+                                            updatelogdata(qrCPF, qrName, selectedFeeder, scannedqrCode, None, datetime.now(), 'No Error','N',datetime.now())
                                             stop_camera()
                                         else:
                                             custom_message_box("ERROR IN LOCKING MECHANISM. FEEDBACK FAILED", f"{selectedFeeder} has not been locked due to feedback failure at the site", "dark orange")
@@ -1345,14 +1387,16 @@ def show_frames(label, selectedFeeder):
                                             stop_camera()
                                     elif master_status == "Y" and qrName not in names and len(names)!=0:
                                         # Master status is "Y", ask for confirmation before logging out all users
-                                        confirmation = custom_askyesno("MASTER LOGOUT CONFIRMATION", f"{selectedFeeder} is not locked by you. Are you sure you want to log out other users using master privileges?","red")
+                                        confirmation = custom_askyesno("IN-CHARGE LOGOUT CONFIRMATION", f"{selectedFeeder} is not locked by you. Are you sure you want to log out other users using master privileges?","red")
                                         if(confirmation):
                                             #logout_all_users(selectedFeeder)
                                             display_names_for_logout(selectedFeeder)
+                                            stop_camera()
                                             #custom_message_box("MASTER LOGOUT", "All users logged out from the feeder", "red")
                                         else:
                                         # User canceled the operation
-                                            custom_message_box("Operation Cancelled", "Master logout operation canceled", "blue")
+                                            custom_message_box("OPERATION CANCELLED", "In-Charge logout operation cancelled", "blue")
+                                            stop_camera()
                                     elif qrName not in names and len(names)!=0:
                                         custom_message_box("FEEDER NOT LOCKED BY YOU", f"You are trying to unlock the {selectedFeeder} which is not locked by you", "red")
                                         updatelogdata(qrCPF, qrName, selectedFeeder, scannedqrCode, None, None, 'Feeder Not Locked by the user','N', datetime.now())
