@@ -26,6 +26,91 @@ if os.path.isfile(lock_file):
 # Create the lock file
 open(lock_file, 'w').close()
 
+def open_history_window():
+
+    global combo_box_state, history_window, history_button # Use the global variables
+
+    cb1.config(state="disabled")
+
+    # Create a new window 
+    history_window = tk.Toplevel(my_w)
+    history_window.title("History window to see the previous log_in and log_out details")
+
+    # Set focus 
+    history_window.focus_set()
+    history_window.grab_set()
+
+    # Increase the size of the window
+    window_width = 800
+    window_height = 400
+
+    # Calculate the window position to center it on the screen
+    screen_width = history_window.winfo_screenwidth()
+    screen_height = history_window.winfo_screenheight()
+    x_position = (screen_width - window_width) // 2
+    y_position = (screen_height - window_height) // 2
+
+    # Set the window size and position
+    history_window.geometry(f"{window_width}x{window_height}+{x_position}+{y_position}")
+
+    # Disable both minimize and maximize options
+    history_window.grab_set()
+
+    # Fetch data from the database
+    data = fetch_logdata()
+
+    # Display the data in a Treeview widget
+    tree = ttk.Treeview(history_window, columns=("cpfno", "name", "authorised_by", "feeder", "login_time", "logout_time", "errors", "master_logout", "time_stamp"),
+                        show="headings", height=15)
+    vsb = ttk.Scrollbar(history_window, orient="vertical", command=tree.yview)
+    hsb = ttk.Scrollbar(history_window, orient="horizontal", command=tree.xview)
+    tree.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
+
+    vsb.pack(side="right", fill="y")
+    hsb.pack(side="bottom", fill="x")
+    tree.pack(expand=True, fill="both")
+
+    tree.heading("cpfno", text="CPF No")
+    tree.heading("name", text="Name")
+    tree.heading("authorised_by", text="Authorised By")
+    tree.heading("feeder", text="Feeder")
+    tree.heading("login_time", text="Login Time")
+    tree.heading("logout_time", text="Logout Time")
+    tree.heading("errors", text="Errors")
+    tree.heading("master_logout", text="Master Logout")
+    tree.heading("time_stamp", text="Time Stamp")
+
+    # Set the background color of the header
+    style = ttk.Style()
+    style.configure("Treeview.Heading", background="blue")
+
+    for col in tree['columns']:
+        tree.heading(col, text=col.title(), anchor=tk.CENTER)
+
+    for record in data:
+        tree.insert("", "end", values=record)
+    
+    tree.pack(expand=True, fill="both")
+
+    def on_window_close():
+         global admin_window  # Use the global variables
+         cb1.config(state="normal")
+         history_window.destroy()
+         history_window.grab_release()
+
+    history_window.protocol("WM_DELETE_WINDOW", on_window_close)
+
+    close_button = tk.Button(history_window, text="Close", command=on_window_close)
+    close_button.pack()
+
+
+
+# Your database connection function
+def fetch_logdata():
+    cur.execute("SELECT * FROM logdata ORDER BY time_stamp DESC")
+    data = cur.fetchall()
+    return data
+
 def open_admin_window():
 
     global combo_box_state, admin_window,admin_button # Use the global variables
@@ -41,8 +126,8 @@ def open_admin_window():
     admin_window.grab_set()
 
     # Increase the size of the window
-    window_width = 800
-    window_height = 400
+    window_width = 5000
+    window_height = 800
 
     # Calculate the window position to center it on the screen
     screen_width = admin_window.winfo_screenwidth()
@@ -455,9 +540,13 @@ def display_header(root):
     footer_label = tk.Label(my_w, text="DEVELOPED AND INTEGRATED BY MINE 1A ELECTRICAL BASE", bg="burlywood1", fg="black", font=("Arial", 12, "bold"))
     footer_label.place(relx=0.5, rely=0.92, anchor="center")
     # Admin Button
-    admin_button = tk.Button(header_frame, text="Admin", command=open_admin_window, bg="white", fg="black")
+    admin_button = tk.Button(header_frame, text="Admin", command=open_admin_window, bg="orange", fg="black")
     admin_button.grid(row=0, column=2, padx=10)  # Adjust column and padding as needed
     admin_button.place(relx=0.085, rely=0.86, anchor="w")
+    # History Button
+    history_button = tk.Button(header_frame, text="History", command=open_history_window, bg="pale turquoise", fg="black")
+    history_button.grid(row=0, column=2, padx=10)  # Adjust column and padding as needed
+    history_button.place(relx=0.12, rely=0.86, anchor="w")
 
 
 # Establish SQLITE Database Connection (If using SQLite3 -- Comment other connection modes if using SQLite)

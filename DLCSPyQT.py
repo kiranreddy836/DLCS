@@ -1,60 +1,59 @@
+import sqlite3
 import tkinter as tk
 from tkinter import ttk
-import sqlite3
 
-def display_database():
-    # Connect to the SQLite database
-    conn = sqlite3.connect('ilcst.db')
+# Function to fetch data from the SQLite database
+def view_logs():
+    conn = sqlite3.connect('ilcst.db')  # Replace 'your_database_name.db' with your actual database name
     cursor = conn.cursor()
-
-    # Fetch data from the database table sorted by time_stamp
-    cursor.execute("SELECT * FROM logdata ORDER BY time_stamp DESC")
+    cursor.execute("SELECT * FROM logdata")
     data = cursor.fetchall()
-
-    # Close the database connection
     conn.close()
+    display_logs(data)
 
-    # Create a Tkinter window
+# Function to display the logs in a tkinter window with horizontal and vertical scrollbars
+def display_logs(data):
     root = tk.Tk()
-    root.title("SQLite Table Display")
+    root.title("Log Data")
 
-    # Create a style for the headers
-    style = ttk.Style(root)
-    style.theme_use("clam")
-    style.configure("Treeview.Heading", background="green", foreground="white", font=("Arial", 10, "bold"))
+    tree = ttk.Treeview(root, columns=("cpfno", "name", "authorised_by", "feeder", "login_time", "logout_time", "errors", "master_logout", "time_stamp"),
+                        show="headings", height=15)
 
-    # Create a frame to hold the table
-    frame = tk.Frame(root)
-    frame.pack()
+    vsb = ttk.Scrollbar(root, orient="vertical", command=tree.yview)
+    hsb = ttk.Scrollbar(root, orient="horizontal", command=tree.xview)
+    tree.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
 
-    # Define headers (excluding the empty first column)
-    headers = ["CPF No", "Name", "Authorized By", "Feeder", "Login Time", "Logout Time", "Errors", "Master Logout", ""]
+    vsb.pack(side="right", fill="y")
+    hsb.pack(side="bottom", fill="x")
+    tree.pack(expand=True, fill="both")
 
-    # Create a scrollbar for both vertical and horizontal directions
-    scrollbar_y = tk.Scrollbar(root, orient=tk.VERTICAL)
-    scrollbar_y.pack(side=tk.RIGHT, fill=tk.Y)
+    tree.heading("cpfno", text="CPF No")
+    tree.heading("name", text="Name")
+    tree.heading("authorised_by", text="Authorised By")
+    tree.heading("feeder", text="Feeder")
+    tree.heading("login_time", text="Login Time")
+    tree.heading("logout_time", text="Logout Time")
+    tree.heading("errors", text="Errors")
+    tree.heading("master_logout", text="Master Logout")
+    tree.heading("time_stamp", text="Time Stamp")
 
-    scrollbar_x = tk.Scrollbar(root, orient=tk.HORIZONTAL)
-    scrollbar_x.pack(side=tk.BOTTOM, fill=tk.X)
+    # Set the background color of the header
+    style = ttk.Style()
+    style.configure("Treeview.Heading", background="blue")
 
-    # Create a treeview to display the data
-    tree = ttk.Treeview(frame, yscrollcommand=scrollbar_y.set, xscrollcommand=scrollbar_x.set)
-    tree['columns'] = headers
+    for col in tree['columns']:
+        tree.heading(col, text=col.title(), anchor=tk.CENTER)
 
-    # Set up headings and column widths
-    for header in headers:
-        tree.heading(header, text=header)
-        tree.column(header, width=150)  # Adjust width as needed
-
-    # Insert data into the table
-    for row in data:
-        tree.insert("", tk.END, values=row[:8])  # Exclude the first element in each row
-
-    tree.grid(row=0, column=0)
-    scrollbar_y.config(command=tree.yview)
-    scrollbar_x.config(command=tree.xview)
+    for record in data:
+        tree.insert("", "end", values=record)
 
     root.mainloop()
 
-# Call the function to display the database contents
-display_database()
+# Creating the GUI
+root = tk.Tk()
+root.title("View Logs")
+
+view_logs_button = tk.Button(root, text="View Logs", command=view_logs)
+view_logs_button.pack()
+
+root.mainloop()
