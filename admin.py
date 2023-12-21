@@ -4,9 +4,119 @@ import cv2
 from PIL import Image, ImageTk
 from pyzbar.pyzbar import decode
 import sqlite3
+import re
 
 conn = sqlite3.connect('ilcst.db')
 cur = conn.cursor()
+
+# Functions for managing feeders in the database
+def check_feeder_exists(feeder_no):
+    query = "SELECT feeder_no FROM feeders WHERE feeder_no=?"
+    cur.execute(query, (feeder_no,))
+    result = cur.fetchone()
+    return result is not None
+
+
+def add_feeder_to_db():
+    feeder_number = entry_feeder_number.get().strip()  # Retrieve feeder number
+    status = entry_status.get().strip()  # Retrieve status
+    input_pin = entry_input_pin_add.get().strip()  # Retrieve input pin
+    output_pin = entry_output_pin_add.get().strip()  # Retrieve output pin
+
+    # Validate the feeder number format
+    feeder_format = re.compile(r'^Feeder-\d{1,2}$')
+    if not feeder_format.match(feeder_number):
+        status_label_add_feeder.config(text="Invalid feeder format (Correct format e.g. Feeder-1/Feeder-21)", fg="red")
+        return
+
+    # Check if any of the fields are empty
+    print(feeder_number, status, input_pin, output_pin)  # Add this line for debugging
+    if not all([feeder_number, status, input_pin, output_pin]):
+        status_label_add_feeder.config(text="All fields are mandatory!", fg="red")
+        return
+
+    # Check if the feeder already exists
+    query = "SELECT feeder_no FROM feeders WHERE feeder_no = ?"
+    cur.execute(query, (feeder_number,))
+    existing_feeder = cur.fetchone()
+
+    if existing_feeder:
+        status_label_add_feeder.config(text="Feeder already exists!", fg="red")
+        return
+
+    # Insert the feeder details into the database
+    cur.execute("INSERT INTO feeders (feeder_no, isActive, input_pin, output_pin) VALUES (?, ?, ?, ?)",
+                (feeder_number, status, input_pin, output_pin))
+    conn.commit()
+
+    status_label_add_feeder.config(text="Feeder added successfully", fg="green")
+    entry_feeder_number.delete(0, tk.END)
+    entry_status.delete(0, tk.END)
+    entry_input_pin_add.delete(0, tk.END)
+    entry_output_pin_add.delete(0, tk.END)
+
+
+def update_feeder_status(feeder_no, is_active, input_pin, output_pin):
+    cur.execute("UPDATE feeders SET isActive=?, input_pin=?, output_pin=? WHERE feeder_no=?",
+                (is_active, input_pin, output_pin, feeder_no))
+    conn.commit()
+
+def get_feeder_status():
+    feeder_number = entry_feeder_number_update.get()
+    feeder_format = re.compile(r'^Feeder-\d{1,2}$')
+
+    if not feeder_format.match(feeder_number):
+        status_label_update_feeder.config(text="Invalid feeder format", fg="red")
+    else:
+        query = "SELECT isActive, input_pin, output_pin FROM feeders WHERE feeder_no=?"
+        cur.execute(query, (feeder_number,))
+        result = cur.fetchone()
+
+        if result is None:
+            status_label_update_feeder.config(text="Feeder does not exist", fg="red")
+        else:
+            status = result[0]
+            #status_label_update_feeder.config(text=f"Current Status: {status}", fg="green")
+            input_pin = result[1]
+            output_pin = result[2]
+
+            entry_feeder_status_update.config(state=tk.NORMAL)
+            entry_feeder_status_update.delete(0, tk.END)
+            entry_feeder_status_update.insert(0, status)
+            entry_feeder_status_update.config(state=tk.NORMAL)  # Enable status field for editing
+
+            entry_input_pin.config(state=tk.NORMAL)
+            entry_input_pin.delete(0, tk.END)
+            entry_input_pin.insert(0, input_pin)
+            entry_input_pin.config(state=tk.NORMAL)  # Enable input pin field for editing
+
+            entry_output_pin.config(state=tk.NORMAL)
+            entry_output_pin.delete(0, tk.END)
+            entry_output_pin.insert(0, output_pin)
+            entry_output_pin.config(state=tk.NORMAL)  # Enable output pin field for editing
+
+            update_status_button.config(state=tk.NORMAL)  # Enable update status button
+
+            # Ensure the update status button is disabled by default when fetching new details
+            #update_status_button.config(state=tk.DISABLED)
+
+def update_feeder_status_in_db():
+    feeder_number = entry_feeder_number_update.get()
+    is_active = entry_feeder_status_update.get()
+
+    feeder_format = re.compile(r'^Feeder-\d{1,2}$')
+    if not feeder_format.match(feeder_number):
+        status_label_update_feeder.config(text="Invalid feeder format", fg="red")
+    else:
+        query = "SELECT isActive FROM feeders WHERE feeder_no=?"
+        cur.execute(query, (feeder_number,))
+        result = cur.fetchone()
+        if result is None:
+            status_label_update_feeder.config(text="Feeder does not exist", fg="red")
+        else:
+            update_feeder_status(feeder_number, is_active)
+            status_label_update_feeder.config(text="Feeder status updated!", fg="green")
+
 
 def show_camera(window):
     global cap
@@ -220,6 +330,25 @@ def confirm_delete():
     entry_phone_delete.delete(0, tk.END)
     entry_master_delete.delete(0, tk.END)
 
+# Function to update feeder status in the database
+def update_feeder_status_in_db():
+    feeder_number = entry_feeder_number_update.get()
+    is_active = entry_feeder_status_update.get()
+    input_pin = entry_input_pin.get()
+    output_pin = entry_output_pin.get()
+
+    update_feeder_status(feeder_number, is_active, input_pin, output_pin)
+    status_label_update_feeder.config(text="Feeder status updated!", fg="green")
+    # Clear fields after successful update
+    entry_feeder_number_update.delete(0, tk.END)
+    entry_feeder_status_update.delete(0, tk.END)
+    entry_input_pin.delete(0, tk.END)
+    entry_output_pin.delete(0, tk.END)
+    
+    # Disable the update status button after clearing the fields
+    update_status_button.config(state=tk.DISABLED)
+
+
 if __name__ == "__main__":
     root = tk.Tk()
     root.title("Admin Screen")
@@ -345,6 +474,76 @@ if __name__ == "__main__":
 
     delete_submit_button = tk.Button(frame_delete_user, text="Delete User", command=confirm_delete, state=tk.DISABLED)
     delete_submit_button.grid(row=8, columnspan=2)
+
+    # Add Feeder Section
+    frame_add_feeder = tk.Frame(root, padx=10, pady=10)
+    frame_add_feeder.grid(row=0, column=3, padx=10, pady=10)
+
+    label_header_add_feeder = tk.Label(frame_add_feeder, text="Add Feeder", font=("Arial", 14, "bold"))
+    label_header_add_feeder.grid(row=0, columnspan=2, pady=5)
+
+    label_feeder_no = tk.Label(frame_add_feeder, text="Feeder Number:")
+    label_feeder_no.grid(row=1, column=0)
+    entry_feeder_number = tk.Entry(frame_add_feeder)
+    entry_feeder_number.grid(row=1, column=1)
+
+    label_status = tk.Label(frame_add_feeder, text="Status (Y/N):")
+    label_status.grid(row=2, column=0)
+    entry_status = tk.Entry(frame_add_feeder)
+    entry_status.grid(row=2, column=1)
+
+    label_input_pin_add = tk.Label(frame_add_feeder, text="Input Pin:")
+    label_input_pin_add.grid(row=3, column=0)
+    entry_input_pin_add = tk.Entry(frame_add_feeder)
+    entry_input_pin_add.grid(row=3, column=1)
+
+    label_output_pin_add = tk.Label(frame_add_feeder, text="Output Pin:")
+    label_output_pin_add.grid(row=4, column=0)
+    entry_output_pin_add = tk.Entry(frame_add_feeder)
+    entry_output_pin_add.grid(row=4, column=1)
+
+    status_label_add_feeder = tk.Label(frame_add_feeder, text="")
+    status_label_add_feeder.grid(row=5, columnspan=2)
+
+    submit_feeder_button = tk.Button(frame_add_feeder, text="Add Feeder", command=add_feeder_to_db)
+    submit_feeder_button.grid(row=6, columnspan=2)
+
+
+    # Update Feeder Status Section
+    frame_update_feeder = tk.Frame(root, padx=10, pady=10)
+    frame_update_feeder.grid(row=1, column=0, columnspan=4, padx=10, pady=10)
+
+    label_header_update_feeder = tk.Label(frame_update_feeder, text="Update Feeder Status", font=("Arial", 14, "bold"))
+    label_header_update_feeder.grid(row=0, columnspan=2, pady=5)
+
+    label_feeder_no_update = tk.Label(frame_update_feeder, text="Feeder Number:")
+    label_feeder_no_update.grid(row=1, column=0)
+    entry_feeder_number_update = tk.Entry(frame_update_feeder)
+    entry_feeder_number_update.grid(row=1, column=1)
+
+    get_status_button = tk.Button(frame_update_feeder, text="Get Status", command=get_feeder_status)
+    get_status_button.grid(row=2, columnspan=2)
+
+    label_status_update = tk.Label(frame_update_feeder, text="Status (Y/N):")
+    label_status_update.grid(row=3, column=0)
+    entry_feeder_status_update = tk.Entry(frame_update_feeder, state=tk.DISABLED)
+    entry_feeder_status_update.grid(row=3, column=1)
+
+    label_input_pin = tk.Label(frame_update_feeder, text="Input Pin:")
+    label_input_pin.grid(row=5, column=0)
+    entry_input_pin = tk.Entry(frame_update_feeder, state=tk.DISABLED)
+    entry_input_pin.grid(row=5, column=1)
+
+    label_output_pin = tk.Label(frame_update_feeder, text="Output Pin:")
+    label_output_pin.grid(row=6, column=0)
+    entry_output_pin = tk.Entry(frame_update_feeder, state=tk.DISABLED)
+    entry_output_pin.grid(row=6, column=1)
+
+    status_label_update_feeder = tk.Label(frame_update_feeder, text="")
+    status_label_update_feeder.grid(row=7, columnspan=2)
+
+    update_status_button = tk.Button(frame_update_feeder, text="Update Status", command=update_feeder_status_in_db, state=tk.DISABLED)
+    update_status_button.grid(row=8, columnspan=2)
 
 
     root.mainloop()

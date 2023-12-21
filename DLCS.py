@@ -403,25 +403,14 @@ def open_admin_window():
 # Create RevPiModIO2 object
 #pi = RevPiModIO(autorefresh=True)
 
-# Define output pins corresponding to feeders
-feeder_output_pins = {
-    'Feeder-1': "O_1",
-    'Feeder-2': "O_2",
-    'Feeder-3': "O_3",
-    'Feeder-4': "O_4"
-}
-
-# Define Input pins corresponding to feeders
-feeder_input_pins = {
-    'Feeder-1': "I_1",
-    'Feeder-2': "I_2",
-    'Feeder-3': "I_3",
-    'Feeder-4': "I_4"
-}
-
 # Function to set feeder lock status
 def set_feeder_output_status(feeder_number, lock_status):
     print("output pins set")
+     # Fetch output pin from the database
+    cur.execute("SELECT output_pin FROM feeders WHERE feeder_no=?", (feeder_number,))
+    result = cur.fetchone()
+    if result:
+        output_pin = result[0]
     """
     pin = feeder_output_pins.get(feeder_number)
     pi.write_value(pin, lock_status)
@@ -430,6 +419,12 @@ def set_feeder_output_status(feeder_number, lock_status):
 
 # Function to get input status of a feeder
 def get_feeder_input_status(feeder_number):
+        # Fetch input pin from the database
+    cur.execute("SELECT input_pin FROM feeders WHERE feeder_no=?", (feeder_number,))
+    result = cur.fetchone()
+    if result:
+        input_pin = result[0]
+
     print("Input status fetched")
 
     """ 
@@ -440,6 +435,13 @@ def get_feeder_input_status(feeder_number):
 
 # Function to get output status of a feeder
 def get_feeder_output_status(feeder_number):
+
+        # Fetch output pin from the database
+    cur.execute("SELECT output_pin FROM feeders WHERE feeder_no=?", (feeder_number,))
+    result = cur.fetchone()
+    if result:
+        output_pin = result[0]
+
     print('Output status fetched')
     """pin = feeder_output_pins.get(feeder_number)
     output_status = pi.read_value(pin)
@@ -968,14 +970,15 @@ my_w.rowconfigure(5, weight=0)  # Reduce weight for frames row
 # String for handling transitions
 sel = tk.StringVar(value='Select the Feeder')
 
-data = ("MINE-1A",)
-cur.execute("select number from feeders where unit=?", data)
-row = cur.fetchone()
-feederCount = row[0]
 displayfeeders = []
 
-for i in range(feederCount):
-    displayfeeders.append("Feeder-" + str(i+1))
+# Fetch feeders from feedersList table where isActive flag is 'Y'
+cur.execute("SELECT feeder_no FROM feeders WHERE isActive='Y' AND input_pin IS NOT NULL AND output_pin IS NOT NULL")
+feeders_list = cur.fetchall()
+
+# Add active feeders to displayfeeders list
+for feeder in feeders_list:
+    displayfeeders.append(str(feeder[0]))
 
 # Combo box for selecting the feeder Number for the corresponding unit selected
 feeder_label = ttk.Label(my_w, text="FEEDER NUMBER",
