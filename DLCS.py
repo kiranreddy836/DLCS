@@ -126,8 +126,8 @@ def open_admin_window():
     admin_window.grab_set()
 
     # Increase the size of the window
-    window_width = 5000
-    window_height = 800
+    window_width = 800
+    window_height = 600
 
     # Calculate the window position to center it on the screen
     screen_width = admin_window.winfo_screenwidth()
@@ -1286,7 +1286,7 @@ def show_frames(label, selectedFeeder):
                                         if status:
                                             custom_message_box("LOCK SUCCESS", f"The {selectedFeeder} has been successfully locked by {qrName}", "SpringGreen3")
                                             # Stop the camera feed
-                                            updatelogdata(qrCPF, qrName, selectedFeeder, scannedqrCode, datetime.now(), None, 'No Error','N')
+                                            updatelogdata(qrCPF, qrName, selectedFeeder, scannedqrCode, datetime.now(), None, 'No Error','N',datetime.now())
                                             stop_camera()
                                         else:
                                             custom_message_box("ERROR IN LOCKING MECHANISM. FEEDBACK FAILED", f"{selectedFeeder} has not been locked due to feedback failure at the site", "dark orange")
