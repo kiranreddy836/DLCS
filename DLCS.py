@@ -12,11 +12,12 @@ import tkinter.messagebox as messagebox
 #import RPi.GPIO as GPIO
 import os
 import tkinter.font as tkFont
-from revpimodio2 import *
-from revpimodio import *
 import time
 from datetime import datetime
-#import CUPS
+import revpimodio2
+#import cups
+#import tempfile
+import csv
 
 # Check if the lock file exists
 lock_file = "app_lock.lock"
@@ -26,41 +27,131 @@ if os.path.isfile(lock_file):
 # Create the lock file
 open(lock_file, 'w').close()
 
+
+def fetch_logdata(start_date=None, end_date=None):
+    conn = sqlite3.connect('ilcst.db')
+    cur = conn.cursor()
+    if start_date and end_date:
+        if start_date > end_date:
+            query = f"SELECT time_stamp, name, authorised_by, feeder, login_time, logout_time, master_logout, errors FROM logdata WHERE DATE(time_stamp) BETWEEN '{start_date}' AND '{end_date}' ORDER BY time_stamp DESC"
+    else:
+        query = "SELECT time_stamp, name, authorised_by, feeder, login_time, logout_time, master_logout, errors FROM logdata ORDER BY time_stamp DESC"
+    cur.execute(query)
+    data = cur.fetchall()
+    conn.close()
+    return data
+
+def export_to_html(data):
+    # Define column names
+    col_names = ["DATE_TIME", "USER NAME_CPF.NO", "LC ISSUED BY", "Feeder_NO", "LOGIN_TIME", "LOGOUT_TIME", "USER LOGGED OUT BY IN-CHARGE", "ERRORS"]
+
+    # Define the absolute path to save the HTML file
+    file_path = "filtered_logdata.html"  # Update with your desired path
+
+    # Create HTML content for table
+    html_content = "<html><head><style>"
+    html_content += "table {border-collapse: collapse; width: 100%;}"
+    html_content += "th, td {border: 1px solid black; padding: 8px;}"
+    html_content += "</style></head><body>"
+    html_content += "<table>"
+    
+    # Add table header
+    html_content += "<tr>"
+    for col in col_names:
+        html_content += f"<th>{col}</th>"
+    html_content += "</tr>"
+
+    # Add table rows
+    for row in data:
+        html_content += "<tr>"
+        for item in row:
+            html_content += f"<td>{item}</td>"
+        html_content += "</tr>"
+
+    html_content += "</table></body></html>"
+
+    # Write HTML content to file
+    with open(file_path, 'w') as html_file:
+        html_file.write(html_content)
+
+    print("HTML file exported successfully at:", file_path)
+
+    messagebox.showinfo("Export Successful", "PDF exported successfully at:\n" + file_path)
+
 def open_history_window():
+    def on_window_close():
+        cb1.config(state="normal")
+        history_window.destroy()
+        history_window.grab_release()
 
-    global combo_box_state, history_window, history_button # Use the global variables
+    def filter_data():
+        start_date = start_date_entry.get()
+        end_date = end_date_entry.get()
+        data = fetch_logdata(start_date, end_date)
+        refresh_treeview(data)
 
-    cb1.config(state="disabled")
+    def print_selected_row(event):
+        item = tree.selection()[0]
+        values = tree.item(item, 'values')
+        print("Double Clicked Row Data:", values)
 
-    # Create a new window 
-    history_window = tk.Toplevel(my_w)
+        confirm_print = messagebox.askyesno("Print Record", "Do you want to print this record on double click?")
+        
+        if confirm_print:
+            printer_name = "Your_Printer_Name"  # Replace with your printer name
+            data_to_print = "\n".join([f"{col}: {val}" for col, val in zip(tree['columns'], values)])
+            print_text(printer_name, data_to_print)
+
+    def print_text(printer_name, text):
+        pass
+
+    def refresh_treeview(data):
+        tree.delete(*tree.get_children())
+        for record in data:
+            tree.insert("", "end", values=record)
+
+    def export_as_pdf():
+        start_date = start_date_entry.get()
+        end_date = end_date_entry.get()
+        data = fetch_logdata(start_date, end_date)
+        export_to_html(data)
+
+    history_window = tk.Toplevel()
     history_window.title("History window to see the previous log_in and log_out details")
-
-    # Set focus 
     history_window.focus_set()
     history_window.grab_set()
 
-    # Increase the size of the window
-    window_width = 800
-    window_height = 400
-
-    # Calculate the window position to center it on the screen
+    window_width = 1000
+    window_height = 600
     screen_width = history_window.winfo_screenwidth()
     screen_height = history_window.winfo_screenheight()
     x_position = (screen_width - window_width) // 2
     y_position = (screen_height - window_height) // 2
 
-    # Set the window size and position
     history_window.geometry(f"{window_width}x{window_height}+{x_position}+{y_position}")
 
-    # Disable both minimize and maximize options
-    history_window.grab_set()
+    cb1.config(state="disabled")
 
-    # Fetch data from the database
-    data = fetch_logdata()
+    start_date_label = tk.Label(history_window, text="Start Date (YYYY-MM-DD):")
+    start_date_label.pack()
+    start_date_entry = tk.Entry(history_window)
+    start_date_entry.pack()
 
-    # Display the data in a Treeview widget
-    tree = ttk.Treeview(history_window, columns=("cpfno", "name", "authorised_by", "feeder", "login_time", "logout_time", "errors", "master_logout", "time_stamp"),
+    end_date_label = tk.Label(history_window, text="End Date (YYYY-MM-DD):")
+    end_date_label.pack()
+    end_date_entry = tk.Entry(history_window)
+    end_date_entry.pack()
+
+    filter_button = tk.Button(history_window, text="Filter", command=filter_data)
+    filter_button.pack()
+
+    export_pdf_button = tk.Button(history_window, text="Export as PDF", command=export_as_pdf)
+    export_pdf_button.pack(side="bottom")
+
+    close_button = tk.Button(history_window, text="Close the window", command=on_window_close)
+    close_button.pack(side="bottom")
+
+    tree = ttk.Treeview(history_window, columns=("DATE_TIME", "USER NAME_CPF.NO", "LC ISSUED BY", "Feeder_NO", "LOGIN_TIME", "LOGOUT_TIME", "USER LOGGED OUT BY IN-CHARGE", "ERRORS"),
                         show="headings", height=15)
     vsb = ttk.Scrollbar(history_window, orient="vertical", command=tree.yview)
     hsb = ttk.Scrollbar(history_window, orient="horizontal", command=tree.xview)
@@ -70,46 +161,21 @@ def open_history_window():
     hsb.pack(side="bottom", fill="x")
     tree.pack(expand=True, fill="both")
 
-    tree.heading("cpfno", text="CPF No")
-    tree.heading("name", text="Name")
-    tree.heading("authorised_by", text="Authorised By")
-    tree.heading("feeder", text="Feeder")
-    tree.heading("login_time", text="Login Time")
-    tree.heading("logout_time", text="Logout Time")
-    tree.heading("errors", text="Errors")
-    tree.heading("master_logout", text="Master Logout")
-    tree.heading("time_stamp", text="Time Stamp")
-
-    # Set the background color of the header
     style = ttk.Style()
-    style.configure("Treeview.Heading", background="blue")
+    style.configure("Treeview.Heading", background="pale turquoise")
 
     for col in tree['columns']:
         tree.heading(col, text=col.title(), anchor=tk.CENTER)
 
+    data = fetch_logdata()
     for record in data:
         tree.insert("", "end", values=record)
-    
+
     tree.pack(expand=True, fill="both")
 
-    def on_window_close():
-         global admin_window  # Use the global variables
-         cb1.config(state="normal")
-         history_window.destroy()
-         history_window.grab_release()
+    tree.bind("<Double-1>", print_selected_row)  # Bind to double-click event
 
     history_window.protocol("WM_DELETE_WINDOW", on_window_close)
-
-    close_button = tk.Button(history_window, text="Close", command=on_window_close)
-    close_button.pack()
-
-
-
-# Your database connection function
-def fetch_logdata():
-    cur.execute("SELECT * FROM logdata ORDER BY time_stamp DESC")
-    data = cur.fetchall()
-    return data
 
 def open_admin_window():
 
@@ -262,6 +328,7 @@ def open_admin_window():
             sel.set("Select the Feeder") # Set the combo box value back to default
             submitbutton.config(state="disabled")
             cb1.focus_set()
+            cb1.config(state="readonly")
             for w in my_w.grid_slaves(row=5):  # all elements in row 5
              w.grid_remove()  # delete elements
 
@@ -400,64 +467,71 @@ def open_admin_window():
     admin_window.columnconfigure(0, weight=1)  # Ensures horizontal centering of the label
 
 
+
 # Create RevPiModIO2 object
-#pi = RevPiModIO(autorefresh=True)
+#pi = revpimodio2.RevPiModIO(autorefresh=True)
+
+
+# Define output pins corresponding to feeders
+feeder_output_pins = {
+    """'Feeder-61': pi.io.O_4,
+    'Feeder-62': pi.io.O_3,
+    'Feeder-63': pi.io.O_2,
+    'Feeder-65': pi.io.O_1"""
+}
+
+# Define output pins corresponding to feeders annunciation
+feeder_output_pins_annunciation = {
+    """'Feeder-61': pi.io.O_5,
+    'Feeder-62': pi.io.O_6,
+    'Feeder-63': pi.io.O_7,
+    'Feeder-65': pi.io.O_8"""
+}
+
+# Define Input pins corresponding to feeders
+feeder_input_pins = {
+    """'Feeder-61': pi.io.I_4,
+    'Feeder-62': pi.io.I_3,
+    'Feeder-63': pi.io.I_2,
+    'Feeder-65': pi.io.I_1"""
+}
 
 # Function to set feeder lock status
 def set_feeder_output_status(feeder_number, lock_status):
-    print("output pins set")
-     # Fetch output pin from the database
-    cur.execute("SELECT output_pin FROM feeders WHERE feeder_no=?", (feeder_number,))
-    result = cur.fetchone()
-    if result:
-        output_pin = result[0]
-    """
-    pin = feeder_output_pins.get(feeder_number)
-    pi.write_value(pin, lock_status)
-    pi.refresh()
-    print(f"Feeder-{feeder_number} lock status set to {lock_status}")"""
+    """pin = feeder_output_pins.get(feeder_number)
+    print(pin)
+    pin.value=lock_status
+    print(f"Feeder-{feeder_number} lock status set to {lock_status}")
+    pin_annunciation = feeder_output_pins_annunciation.get(feeder_number)
+    pin_annunciation.value=lock_status"""
 
 # Function to get input status of a feeder
 def get_feeder_input_status(feeder_number):
-        # Fetch input pin from the database
-    cur.execute("SELECT input_pin FROM feeders WHERE feeder_no=?", (feeder_number,))
-    result = cur.fetchone()
-    if result:
-        input_pin = result[0]
-
-    print("Input status fetched")
-
-    """ 
     pin = feeder_input_pins.get(feeder_number)
-    input_status = pi.read_value(pin)
+    input_status = pin.value
     print(f"Status of Feeder-{feeder_number} input: {input_status}")
-    return input_status"""
+    return input_status
 
 # Function to get output status of a feeder
 def get_feeder_output_status(feeder_number):
-
-        # Fetch output pin from the database
-    cur.execute("SELECT output_pin FROM feeders WHERE feeder_no=?", (feeder_number,))
-    result = cur.fetchone()
-    if result:
-        output_pin = result[0]
-
-    print('Output status fetched')
-    """pin = feeder_output_pins.get(feeder_number)
-    output_status = pi.read_value(pin)
+    pin = feeder_output_pins.get(feeder_number)
+    output_status = pin.value
     print(f"Status of Feeder-{feeder_number} output: {output_status}")
-    return output_status"""
+    return output_status
 
 # Function to compare input and output status for a feeder
 def compare_input_output_status(feeder_number):
-    """input_status = get_feeder_input_status(feeder_number)
     output_status = get_feeder_output_status(feeder_number)
-    
-    match_status = input_status == output_status
+    time.sleep(2)
+    input_status = get_feeder_input_status(feeder_number)
+    if input_status != output_status:
+        match_status = True
+    else:
+        match_status = False
+        
     print(f"Feeder-{feeder_number} input status: {input_status}")
-    print(f"Feeder-{feeder_number} output status: {output_status}")"""
-    print("Comparison of input and output pins done")
-    
+    print(f"Feeder-{feeder_number} output status: {output_status}")
+        
     return True
 # Initialize the variable to store the last scanned cpfNo
 #global last_scanned_cpf 
@@ -511,7 +585,7 @@ def display_header(root):
         right_label.image = right_photo  # Keep a reference to avoid garbage collection
         
         # Position the right image to the right of the title label
-        right_label.place(relx=0.92, rely=0.49, anchor="e")  # Adjust position as needed
+        right_label.place(relx=0.94, rely=0.49, anchor="e")  # Adjust position as needed
     except FileNotFoundError:
         print("Image not found. Make sure the image file exists.")
 
@@ -544,11 +618,11 @@ def display_header(root):
     # Admin Button
     admin_button = tk.Button(header_frame, text="Admin", command=open_admin_window, bg="orange", fg="black")
     admin_button.grid(row=0, column=2, padx=10)  # Adjust column and padding as needed
-    admin_button.place(relx=0.085, rely=0.86, anchor="w")
+    admin_button.place(relx=0.06, rely=0.86, anchor="w")
     # History Button
     history_button = tk.Button(header_frame, text="History", command=open_history_window, bg="pale turquoise", fg="black")
     history_button.grid(row=0, column=2, padx=10)  # Adjust column and padding as needed
-    history_button.place(relx=0.12, rely=0.86, anchor="w")
+    history_button.place(relx=0.1, rely=0.86, anchor="w")
 
 
 # Establish SQLITE Database Connection (If using SQLite3 -- Comment other connection modes if using SQLite)
@@ -557,22 +631,28 @@ db_file = os.path.join(current_directory, "ilcst.db")
 conn = sqlite3.connect(db_file)
 cur = conn.cursor()
 
-"""def print(qrCPF, qrName, selectedFeeder, scannedqrCode, login_time, logout_time, master):
+"""
+def printlog(qrCPF, qrName, selectedFeeder, scannedqrCode, login_time, logout_time, error, master, time_stamp):
     # Initialize a connection to the CUPS server
     conn = cups.Connection()
     # Get a list of available printers
     printers = conn.getPrinters()
+    print(printers)
     # printer's name
-    printer_name = 'DLCS'
+    printer_name = 'HP-LaserJet-M1005'
     # Check if the chosen printer is available
     if printer_name in printers:
         # Prepare the data to be printed
-        data_to_print = f"qrCPF: {qrCPF}, qrName: {qrName}, selectedFeeder: {selectedFeeder}, scannedqrCode: {scannedqrCode}, datetime: login_time}"
+        data_to_print = f"qrCPF: {qrCPF}, qrName: {qrName}, selectedFeeder: {selectedFeeder}, scannedqrCode: {scannedqrCode}, datetime: {login_time}"
         # Send data to the printer
-        conn.printFile(printer_name, "-", {"cpi": "12", "lpi": "6"}, data_to_print)
+        temp_file = tempfile.NamedTemporaryFile(delete=False)
+        temp_file.write(data_to_print.encode('utf-8'))
+        temp_file.close()
+        
+        conn.printFile(printer_name, temp_file.name, {}, "Printing Data")
         print("Printing successful.")
     else:
-        print("Printer not found.")"""
+        print("Printer not found.") """
 
 def updatelogdata(qrCPF, qrName, selectedFeeder, scannedqrCode, login_time, logout_time, errors, master_logout,time_stamp):
     data_to_insert = (qrCPF, qrName, selectedFeeder, scannedqrCode, login_time, logout_time, errors, master_logout,time_stamp)
@@ -602,6 +682,7 @@ def stop_camera():
         sel.set("Select the Feeder") # Set the combo box value back to default
         submitbutton.config(state="disabled")
         cb1.focus_set()
+        cb1.config(state="readonly")
         for w in my_w.grid_slaves(row=5):  # all elements in row 5
             w.grid_remove()  # delete elements
 
@@ -621,10 +702,10 @@ name_selection_window = None  # Initialize name_selection_window
 
 # Function to release the lock file when the application is closed
 def on_main_window_close():
-    # Delete the lock file
-    if os.path.isfile(lock_file):
+# Delete the lock file
+   if os.path.isfile(lock_file):
         os.remove(lock_file)
-    my_w.destroy()
+        my_w.destroy()
 
 # Create a function to display names for logout in a new window (as a modal dialog)
 def display_names_for_logout(selectedFeeder):
@@ -703,7 +784,7 @@ def display_names_for_logout(selectedFeeder):
                     custom_message_box("User Logout", f"{name_to_logout} has been logged out from {selectedFeeder}.", "green")
                     name_selection_window.destroy()
                     cb1.config(state="normal")
-                    updatelogdata(fetchcpf(name_to_logout), name_to_logout, selectedFeeder, fetchscannedQR(), None, datetime.now(), 'No Error.This is a master logout','Y', datetime.now())
+                    updatelogdata(fetchcpf(name_to_logout), name_to_logout, selectedFeeder, fetchscannedQR(), None, datetime.now(), 'No Error - User logged out by in-charge','Y', datetime.now())
                     stop_camera()
                 else:
                     custom_message_box("ERROR IN LOCKING MECHANISM. FEEDBACK FAILED", f"{selectedFeeder} has not been locked due to feedback failure at the site", "dark orange")
@@ -849,10 +930,10 @@ def custom_askyesnoforapproval(title, message, bg_color):
 # Function to initialize the feeder info window
 def initialize_feeder_info_window(parent):
     feeder_info_frame = tk.Frame(parent, background="snow2")
-    feeder_info_frame.place(relx=0.61, rely=0.18, relwidth=0.38, relheight=0.2)
+    feeder_info_frame.place(relx=0.61, rely=0.18, relwidth=0.38, relheight=0.14)
 
     # Create label for Feeders Info Frame
-    label = tk.Label(feeder_info_frame, text="STATUS OF THE FEEDERS", font=("Times New Roman", 15, "bold"), background="pale turquoise",foreground="red4")
+    label = tk.Label(feeder_info_frame, text="STATUS OF THE FEEDERS", font=("Times New Roman", 15, "bold"),foreground="red4")
     label.pack()
 
     # Create a horizontal scrollbar for the treeview
@@ -973,7 +1054,7 @@ sel = tk.StringVar(value='Select the Feeder')
 displayfeeders = []
 
 # Fetch feeders from feedersList table where isActive flag is 'Y'
-cur.execute("SELECT feeder_no FROM feeders WHERE isActive='Y' AND input_pin IS NOT NULL AND output_pin IS NOT NULL")
+cur.execute("SELECT feeder_no FROM feeders WHERE isActive='Y' ORDER BY feeder_no ASC")
 feeders_list = cur.fetchall()
 
 # Add active feeders to displayfeeders list
@@ -1008,12 +1089,12 @@ def display_cpf_details():
     if user_details:
         custom_font = ("Times New Roman", 11,"bold")
         # Update the label to display user details
-        details_label.config(text=f"CPF Number:- {user_details[0]}\nName:- {user_details[1]}\nPhone Number:- {user_details[2]}", font=custom_font)
+        details_label.config(text=f"Name:- {user_details[1]}\nDesignation:- {user_details[2]}\nPhone Number:- {user_details[3]}", font=custom_font)
     else:
         details_label.config(text="User not found")
 
 cpf_info_frame = tk.Frame(my_w, background="azure2")
-cpf_info_frame.place(relx=0.01, rely=0.18, relwidth=0.32, relheight=0.1)
+cpf_info_frame.place(relx=0.01, rely=0.18, relwidth=0.27, relheight=0.1)
  # Create label for Feeders Info Frame
 label = tk.Label(cpf_info_frame, text="GET CONTACT DETAILS", font=("Times New Roman", 14, "bold"),foreground="blue")
 label.pack()
@@ -1028,7 +1109,7 @@ cpf_submit_button.pack(side="left", padx=10, pady=10)
 
 # Create a label for displaying user details
 details_label = tk.Label(my_w, text="", font=("Arial", 12), background="azure2")
-details_label.place(relx=0.01, rely=0.27, relwidth=0.32, relheight=0.11)
+details_label.place(relx=0.01, rely=0.27, relwidth=0.27, relheight=0.11)
 
 # Set the initial focus to the combobox
 cb1.focus_set()
@@ -1359,7 +1440,8 @@ def show_frames(label, selectedFeeder):
                                     stop_camera()
 
                     elif approval_shown == "True" and master_status == "Y" and fetchscannedQR()==qrCPF:
-                        display_scan_prompt()
+                        #display_scan_prompt()
+                        pass
 
                     elif check_master_status(scannedqrCode)!="Y" and check_master_status(qrCPF) !="Y" :
                         custom_message_box("IN-CHARGE AUTHORIZATION REQUIRED", "\nFirst Incharge need to Scan his card to let you scan your QR code.\nClick OK Close the Scanner", "orange red")
@@ -1384,6 +1466,9 @@ def show_frames(label, selectedFeeder):
                                             custom_message_box("LOCK SUCCESS - MULTIPLE LOCKS FOUND", f" You have locked the feeder Successfully. {selectedFeeder} is now locked by multiple persons", "dark orange")
                                             # Stop the camera feed
                                             updatelogdata(qrCPF, qrName, selectedFeeder, scannedqrCode,datetime.now(), None, 'No Error','N',datetime.now())
+                                            print("==========code comes here======")
+                                            #printlog(qrCPF, qrName, selectedFeeder, scannedqrCode,datetime.now(), None, 'No Error','N',datetime.now())
+                                            print("==========code exits here======")
                                             stop_camera()
                                         else:
                                             custom_message_box("ERROR IN LOCKING MECHANISM. FEEDBACK FAILED", f"{selectedFeeder} has not been locked due to feedback failure at the site", "dark orange")
@@ -1414,6 +1499,9 @@ def show_frames(label, selectedFeeder):
                                         if status:
                                             custom_message_box("LOCK SUCCESS", f"The {selectedFeeder} has been successfully locked by {qrName}", "SpringGreen3")
                                             updatelogdata(qrCPF, qrName, selectedFeeder, scannedqrCode, datetime.now(), None, 'No Error','N', datetime.now())
+                                            print("==========code comes here======")
+                                            #printlog(qrCPF, qrName, selectedFeeder, scannedqrCode, datetime.now(), None, 'No Error','N', datetime.now())
+                                            print("==========code exits here======")
                                             # Stop the camera feed
                                             stop_camera()
                                         else:
