@@ -23,7 +23,7 @@ def print_text(printer_name, text):
         print(f"ValueError: {ve}")
 
 # Usage
-printer_name = "Your_Printer_Name"  # Replace with your printer name
+printer_name = "HP-LaserJet-M1005"  
 text_to_print = "Hello, this is a test text for printing."
 
 print_text(printer_name, text_to_print)

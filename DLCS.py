@@ -15,38 +15,76 @@ import tkinter.font as tkFont
 import time
 from datetime import datetime
 import revpimodio2
+#from fpdf import FPDF
 #import cups
 #import tempfile
-import csv
 
 # Check if the lock file exists
 lock_file = "app_lock.lock"
 if os.path.isfile(lock_file):
-    messagebox.showerror("Error", "Another instance of the application is already running.")
+    messagebox.showerror("Error", "Another instance of the application is already running.Please check if you have already minimised the application")
     exit()
 # Create the lock file
 open(lock_file, 'w').close()
-
 
 def fetch_logdata(start_date=None, end_date=None):
     conn = sqlite3.connect('ilcst.db')
     cur = conn.cursor()
     if start_date and end_date:
-        if start_date > end_date:
-            query = f"SELECT time_stamp, name, authorised_by, feeder, login_time, logout_time, master_logout, errors FROM logdata WHERE DATE(time_stamp) BETWEEN '{start_date}' AND '{end_date}' ORDER BY time_stamp DESC"
+        """if start_date > end_date:
+            custom_message_box("Date Validation Error", f"start_date should not be greater than end_date.", "red")"""
+        query = f"SELECT time_stamp, name, authorised_by, feeder, login_time, logout_time, errors FROM logdata WHERE DATE(time_stamp) BETWEEN '{start_date}' AND '{end_date}' ORDER BY time_stamp DESC"
     else:
-        query = "SELECT time_stamp, name, authorised_by, feeder, login_time, logout_time, master_logout, errors FROM logdata ORDER BY time_stamp DESC"
+        query = "SELECT time_stamp, name, authorised_by, feeder, login_time, logout_time, errors FROM logdata ORDER BY time_stamp DESC"
     cur.execute(query)
     data = cur.fetchall()
     conn.close()
     return data
 
-def export_to_html(data):
+
+def export_to_pdf(data):
+    
+    pdf = FPDF()
+    pdf.set_auto_page_break(auto=True, margin=10)
+    pdf.add_page()
+    pdf.set_font("Arial", size=6)  # Decrease font size for table content
+
+    col_names = ("DATE_TIME", "USERNAME_CPF.NO", "LC ISSUED BY", "FEEDER_NO", "LOGIN_TIME", "LOGOUT_TIME", "REMARKS")
+    col_widths = [10, 25, 14, 12, 28, 28, 30, 7, 30]  # Adjust widths as needed
+
+    # Adding table header
+    pdf.set_fill_color(200)
+    pdf.set_text_color(0)
+    pdf.set_font('Arial', 'B', 8)
+    for i, col in enumerate(col_names):
+        pdf.cell(col_widths[i], 8, col, 1, 0, 'C', 1)
+    pdf.ln()
+
+    # Adding table rows
+    pdf.set_font('Arial', '', 6)  # Use the same font for content
+    pdf.set_fill_color(255)
+    fill = False
+    for row in data:
+        for i, item in enumerate(row):
+            pdf.cell(col_widths[i], 6, str(item), 1, 0, 'C', fill)
+        pdf.ln()
+        fill = not fill
+
+    # Define the absolute path to save the PDF
+    file_path = r"\home\pi\Desktop\exported_logdata.pdf"  # Update with your desired path
+
+    # Save the PDF file
+    pdf.output(file_path)
+     # Show success message after PDF export
+    messagebox.showinfo("Export Successful", "PDF exported successfully at:\n" + file_path)
+    
+def export_as_html_data(data):
     # Define column names
-    col_names = ["DATE_TIME", "USER NAME_CPF.NO", "LC ISSUED BY", "Feeder_NO", "LOGIN_TIME", "LOGOUT_TIME", "USER LOGGED OUT BY IN-CHARGE", "ERRORS"]
+    col_names = ["DATE_TIME", "USERNAME_CPF.NO", "LC ISSUED BY", "FEEDER_NO", "LOGIN_TIME", "LOGOUT_TIME", "REMARKS"]
 
     # Define the absolute path to save the HTML file
-    file_path = "filtered_logdata.html"  # Update with your desired path
+    file_path = "/home/pi/Desktop/exported_logdata.html"  # Update with your desired path
+    print(file_path)
 
     # Create HTML content for table
     html_content = "<html><head><style>"
@@ -69,18 +107,16 @@ def export_to_html(data):
         html_content += "</tr>"
 
     html_content += "</table></body></html>"
-
-    # Write HTML content to file
-    with open(file_path, 'w') as html_file:
+    with open(file_path,'w') as html_file:
         html_file.write(html_content)
-
-    print("HTML file exported successfully at:", file_path)
-
-    messagebox.showinfo("Export Successful", "PDF exported successfully at:\n" + file_path)
+        
+    custom_message_box("Export Successful", f"Data exported successfully at : {file_path} ", "green")
 
 def open_history_window():
+    
     def on_window_close():
         cb1.config(state="normal")
+        cb1.config(state="readonly")
         history_window.destroy()
         history_window.grab_release()
 
@@ -110,19 +146,21 @@ def open_history_window():
         for record in data:
             tree.insert("", "end", values=record)
 
-    def export_as_pdf():
+    def export_as_html():
         start_date = start_date_entry.get()
         end_date = end_date_entry.get()
         data = fetch_logdata(start_date, end_date)
-        export_to_html(data)
+        export_as_html_data(data)
 
     history_window = tk.Toplevel()
     history_window.title("History window to see the previous log_in and log_out details")
+    
     history_window.focus_set()
     history_window.grab_set()
+    
 
-    window_width = 1000
-    window_height = 600
+    window_width = 1900
+    window_height = 700
     screen_width = history_window.winfo_screenwidth()
     screen_height = history_window.winfo_screenheight()
     x_position = (screen_width - window_width) // 2
@@ -145,13 +183,13 @@ def open_history_window():
     filter_button = tk.Button(history_window, text="Filter", command=filter_data)
     filter_button.pack()
 
-    export_pdf_button = tk.Button(history_window, text="Export as PDF", command=export_as_pdf)
-    export_pdf_button.pack(side="bottom")
+    export_data_button = tk.Button(history_window, text="Export Data", command=export_as_html)
+    export_data_button.pack(side="bottom")
 
     close_button = tk.Button(history_window, text="Close the window", command=on_window_close)
     close_button.pack(side="bottom")
 
-    tree = ttk.Treeview(history_window, columns=("DATE_TIME", "USER NAME_CPF.NO", "LC ISSUED BY", "Feeder_NO", "LOGIN_TIME", "LOGOUT_TIME", "USER LOGGED OUT BY IN-CHARGE", "ERRORS"),
+    tree = ttk.Treeview(history_window, columns=("DATE_TIME", "USERNAME_CPF.NO", "LC ISSUED BY", "FEEDER_NO", "LOGIN_TIME", "LOGOUT_TIME", "REMARKS"),
                         show="headings", height=15)
     vsb = ttk.Scrollbar(history_window, orient="vertical", command=tree.yview)
     hsb = ttk.Scrollbar(history_window, orient="horizontal", command=tree.xview)
@@ -173,9 +211,97 @@ def open_history_window():
 
     tree.pack(expand=True, fill="both")
 
-    tree.bind("<Double-1>", print_selected_row)  # Bind to double-click event
+    #tree.bind("<Double-1>", print_selected_row)  # Bind to double-click event
+
+    history_window.wait_window(history_window)
 
     history_window.protocol("WM_DELETE_WINDOW", on_window_close)
+
+
+"""def open_history_window():
+
+    global combo_box_state, history_window, history_button # Use the global variables
+
+    cb1.config(state="disabled")
+
+    # Create a new window 
+    history_window = tk.Toplevel(my_w)
+    history_window.title("History window to see the previous log_in and log_out details")
+
+    # Set focus 
+    history_window.focus_set()
+    history_window.grab_set()
+
+    # Increase the size of the window
+    window_width = 1900
+    window_height = 700
+
+    # Calculate the window position to center it on the screen
+    screen_width = history_window.winfo_screenwidth()
+    screen_height = history_window.winfo_screenheight()
+    x_position = (screen_width - window_width) // 2
+    y_position = (screen_height - window_height) // 2
+
+    # Set the window size and position
+    history_window.geometry(f"{window_width}x{window_height}+{x_position}+{y_position}")
+
+    # Disable both minimize and maximize options
+    history_window.grab_set()
+
+    # Fetch data from the database
+    data = fetch_logdata()
+
+    # Display the data in a Treeview widget
+    tree = ttk.Treeview(history_window, columns=("cpfno", "name", "authorised_by", "feeder", "login_time", "logout_time", "errors", "master_logout", "time_stamp"),
+                        show="headings", height=15)
+    vsb = ttk.Scrollbar(history_window, orient="vertical", command=tree.yview)
+    hsb = ttk.Scrollbar(history_window, orient="horizontal", command=tree.xview)
+    tree.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
+
+    vsb.pack(side="right", fill="y")
+    hsb.pack(side="bottom", fill="x")
+    tree.pack(expand=True, fill="both")
+
+    tree.heading("cpfno", text="CPF No")
+    tree.heading("name", text="Name")
+    tree.heading("authorised_by", text="Authorised By")
+    tree.heading("feeder", text="Feeder")
+    tree.heading("login_time", text="Login Time")
+    tree.heading("logout_time", text="Logout Time")
+    tree.heading("errors", text="Errors")
+    tree.heading("master_logout", text="Master Logout")
+    tree.heading("time_stamp", text="Time Stamp")
+
+    # Set the background color of the header
+    style = ttk.Style()
+    style.configure("Treeview.Heading", background="pale turquoise")
+
+    for col in tree['columns']:
+        tree.heading(col, text=col.title(), anchor=tk.CENTER)
+
+    for record in data:
+        tree.insert("", "end", values=record)
+    
+    tree.pack(expand=True, fill="both")
+
+    def on_window_close():
+         global admin_window  # Use the global variables
+         cb1.config(state="normal")
+         history_window.destroy()
+         history_window.grab_release()
+
+    history_window.protocol("WM_DELETE_WINDOW", on_window_close)
+
+    close_button = tk.Button(history_window, text="Close", command=on_window_close)
+    close_button.pack()
+
+
+
+# Your database connection function
+def fetch_logdata():
+    cur.execute("SELECT * FROM logdata ORDER BY time_stamp DESC")
+    data = cur.fetchall()
+    return data"""
 
 def open_admin_window():
 
@@ -311,6 +437,7 @@ def open_admin_window():
     def on_window_close():
         global admin_window  # Use the global variables
         cb1.config(state="normal")
+        cb1.config(state="readonly")
         admin_window.destroy()
         admin_window.grab_release()
 
@@ -457,7 +584,7 @@ def open_admin_window():
     delete_submit_button.grid(row=8, columnspan=2)
 
     # Note label at the bottom
-    note_label = tk.Label(admin_window, text="    NOTE: In-charge privilege for an user can be updated only through admin portal. ", pady=10, font=("Arial", 10, "bold"))
+    note_label = tk.Label(admin_window, text="    NOTE: In-charge privileges for an user can be updated only through admin portal through proper authorisation. ", pady=10, font=("Arial", 10, "bold"))
     note_label.grid(row=5, column=0, columnspan=3, sticky="ew")  # Positioned at the bottom
 
     # Close button for the window
@@ -469,41 +596,41 @@ def open_admin_window():
 
 
 # Create RevPiModIO2 object
-#pi = revpimodio2.RevPiModIO(autorefresh=True)
+pi = revpimodio2.RevPiModIO(autorefresh=True)
 
 
 # Define output pins corresponding to feeders
 feeder_output_pins = {
-    """'Feeder-61': pi.io.O_4,
+    'Feeder-61': pi.io.O_4,
     'Feeder-62': pi.io.O_3,
     'Feeder-63': pi.io.O_2,
-    'Feeder-65': pi.io.O_1"""
+    'Feeder-65': pi.io.O_1
 }
 
 # Define output pins corresponding to feeders annunciation
 feeder_output_pins_annunciation = {
-    """'Feeder-61': pi.io.O_5,
+    'Feeder-61': pi.io.O_5,
     'Feeder-62': pi.io.O_6,
     'Feeder-63': pi.io.O_7,
-    'Feeder-65': pi.io.O_8"""
+    'Feeder-65': pi.io.O_8
 }
 
 # Define Input pins corresponding to feeders
 feeder_input_pins = {
-    """'Feeder-61': pi.io.I_4,
+    'Feeder-61': pi.io.I_4,
     'Feeder-62': pi.io.I_3,
     'Feeder-63': pi.io.I_2,
-    'Feeder-65': pi.io.I_1"""
+    'Feeder-65': pi.io.I_1
 }
 
 # Function to set feeder lock status
 def set_feeder_output_status(feeder_number, lock_status):
-    """pin = feeder_output_pins.get(feeder_number)
+    pin = feeder_output_pins.get(feeder_number)
     print(pin)
     pin.value=lock_status
     print(f"Feeder-{feeder_number} lock status set to {lock_status}")
     pin_annunciation = feeder_output_pins_annunciation.get(feeder_number)
-    pin_annunciation.value=lock_status"""
+    pin_annunciation.value=lock_status
 
 # Function to get input status of a feeder
 def get_feeder_input_status(feeder_number):
@@ -532,7 +659,7 @@ def compare_input_output_status(feeder_number):
     print(f"Feeder-{feeder_number} input status: {input_status}")
     print(f"Feeder-{feeder_number} output status: {output_status}")
         
-    return True
+    return match_status
 # Initialize the variable to store the last scanned cpfNo
 #global last_scanned_cpf 
 
@@ -575,31 +702,55 @@ def display_header(root):
     except FileNotFoundError:
         print("Logo image not found. Make sure the image file exists.")
 
-    image_filename2="CMD.png"
-    # Load the image for the extreme right
+    image_filename1="CMD.png"
+    # Load the image for the extreme left
     try:
-        right_image = Image.open(image_filename2)  # Replace with your image path
-        right_image = right_image.resize((90, 100))  # Adjust size as needed
-        right_photo = ImageTk.PhotoImage(right_image)
-        right_label = tk.Label(header_frame, image=right_photo, bg="RoyalBlue4")
-        right_label.image = right_photo  # Keep a reference to avoid garbage collection
+        left_image1 = Image.open(image_filename1)  # Replace with your image path
+        left_image1 = left_image1.resize((90, 100))  # Adjust size as needed
+        left_photo1 = ImageTk.PhotoImage(left_image1)
+        left_label1 = tk.Label(header_frame, image=left_photo1, bg="RoyalBlue4")
+        left_label1.image = left_photo1  # Keep a reference to avoid garbage collection
+        left_label1.place(relx=0.105, rely=0.49, anchor="e")  # Adjust position as needed
         
-        # Position the right image to the right of the title label
-        right_label.place(relx=0.94, rely=0.49, anchor="e")  # Adjust position as needed
     except FileNotFoundError:
         print("Image not found. Make sure the image file exists.")
 
     image_filename2="D-M.png"
-    # Load the image for the extreme right
+    # Load the image for the extreme left
     try:
-        right_image = Image.open(image_filename2)  # Replace with your image path
-        right_image = right_image.resize((90, 100))  # Adjust size as needed
-        right_photo = ImageTk.PhotoImage(right_image)
-        right_label = tk.Label(header_frame, image=right_photo, bg="RoyalBlue4")
-        right_label.image = right_photo  # Keep a reference to avoid garbage collection
+        left_image2 = Image.open(image_filename2)  # Replace with your image path
+        left_image2 = left_image2.resize((90, 100))  # Adjust size as needed
+        left_photo2 = ImageTk.PhotoImage(left_image2)
+        left_label2 = tk.Label(header_frame, image=left_photo2, bg="RoyalBlue4")
+        left_label2.image = left_photo2  # Keep a reference to avoid garbage collection
+        left_label2.place(relx=0.154, rely=0.49, anchor="e")  # Adjust position as needed
         
-        # Position the right image to the right of the title label
-        right_label.place(relx=0.99, rely=0.49, anchor="e")  # Adjust position as needed
+    except FileNotFoundError:
+        print("Image not found. Make sure the image file exists.")
+        
+    image_filename3="ED.png"
+    # Load the image for the extreme left
+    try:
+        left_image3 = Image.open(image_filename3)  # Replace with your image path
+        left_image3 = left_image3.resize((90, 100))  # Adjust size as needed
+        left_photo3 = ImageTk.PhotoImage(left_image3)
+        left_label3 = tk.Label(header_frame, image=left_photo3, bg="RoyalBlue4")
+        left_label3.image = left_photo3  # Keep a reference to avoid garbage collection
+        left_label3.place(relx=0.95, rely=0.49, anchor="e")  # Adjust position as needed
+        
+    except FileNotFoundError:
+        print("Image not found. Make sure the image file exists.")
+
+    image_filename4="CGM.png"
+    # Load the image for the extreme left
+    try:
+        left_image4 = Image.open(image_filename4)  # Replace with your image path
+        left_image4 = left_image4.resize((90, 100))  # Adjust size as needed
+        left_photo4 = ImageTk.PhotoImage(left_image4)
+        left_label4 = tk.Label(header_frame, image=left_photo4, bg="RoyalBlue4")
+        left_label4.image = left_photo4  # Keep a reference to avoid garbage collection
+        left_label4.place(relx=0.999, rely=0.49, anchor="e")  # Adjust position as needed
+        
     except FileNotFoundError:
         print("Image not found. Make sure the image file exists.")
 
@@ -615,15 +766,6 @@ def display_header(root):
     # Footer Label
     footer_label = tk.Label(my_w, text="DEVELOPED AND INTEGRATED BY MINE 1A ELECTRICAL BASE", bg="burlywood1", fg="black", font=("Arial", 12, "bold"))
     footer_label.place(relx=0.5, rely=0.92, anchor="center")
-    # Admin Button
-    admin_button = tk.Button(header_frame, text="Admin", command=open_admin_window, bg="orange", fg="black")
-    admin_button.grid(row=0, column=2, padx=10)  # Adjust column and padding as needed
-    admin_button.place(relx=0.06, rely=0.86, anchor="w")
-    # History Button
-    history_button = tk.Button(header_frame, text="History", command=open_history_window, bg="pale turquoise", fg="black")
-    history_button.grid(row=0, column=2, padx=10)  # Adjust column and padding as needed
-    history_button.place(relx=0.1, rely=0.86, anchor="w")
-
 
 # Establish SQLITE Database Connection (If using SQLite3 -- Comment other connection modes if using SQLite)
 current_directory = os.getcwd()
@@ -784,7 +926,7 @@ def display_names_for_logout(selectedFeeder):
                     custom_message_box("User Logout", f"{name_to_logout} has been logged out from {selectedFeeder}.", "green")
                     name_selection_window.destroy()
                     cb1.config(state="normal")
-                    updatelogdata(fetchcpf(name_to_logout), name_to_logout, selectedFeeder, fetchscannedQR(), None, datetime.now(), 'No Error - User logged out by in-charge','Y', datetime.now())
+                    updatelogdata(fetchcpf(name_to_logout), name_to_logout, selectedFeeder, fetchscannedQR(), None, datetime.now(), 'No Error.This is a master logout','Y', datetime.now())
                     stop_camera()
                 else:
                     custom_message_box("ERROR IN LOCKING MECHANISM. FEEDBACK FAILED", f"{selectedFeeder} has not been locked due to feedback failure at the site", "dark orange")
@@ -801,6 +943,7 @@ def display_names_for_logout(selectedFeeder):
         def close_select_logout_window():
             name_selection_window.destroy()
             cb1.config(state="normal")
+            stop_camera()
 
         # Create a submit button
         submit_button = ttk.Button(name_selection_window, text="Submit", command=logout_selected_name)
@@ -1101,6 +1244,16 @@ label.pack()
 cpf_label = tk.Label(cpf_info_frame, text="Enter CPF Number:", font=("Times New Roman", 15, "bold"), background="snow2", foreground="red4")
 cpf_label.pack(side="left", padx=10, pady=10)
 
+# Admin Button
+admin_button = tk.Button(cpf_info_frame, text="Admin", command=open_admin_window, bg="orange", fg="black")
+admin_button.place(relx=0.01, rely=0.15, anchor="w")
+
+
+# History Button
+history_button = tk.Button(cpf_info_frame, text="Log History", command=open_history_window, bg="pale turquoise", fg="black")
+history_button.place(relx=0.80, rely=0.15, anchor="w")
+
+
 cpf_entry = ttk.Entry(cpf_info_frame)
 cpf_entry.pack(side="left", padx=10, pady=10)
 
@@ -1113,6 +1266,7 @@ details_label.place(relx=0.01, rely=0.27, relwidth=0.27, relheight=0.11)
 
 # Set the initial focus to the combobox
 cb1.focus_set()
+cb1.config(state="readonly")
 
 def custom_message_box(title, message, bg_color):
 
@@ -1633,6 +1787,7 @@ def show_frames(label, selectedFeeder):
             sel.set("Select the Feeder") # Set the combo box value back to default
             submitbutton.config(state="disabled")
             cb1.focus_set()
+            cb1.config(state="readonly")
             for w in my_w.grid_slaves(row=5):  # all elements in row 5
              w.grid_remove()  # delete elements
 

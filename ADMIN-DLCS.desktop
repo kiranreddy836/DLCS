@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=ADMIN-DLCS
+Exec=python3 /home/pi/final_code/final/admin.py
+Icon=/home/pi/final_code/final/admin.png
+Terminal=false
+Path=/home/pi/final_code/final/

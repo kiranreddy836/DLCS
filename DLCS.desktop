@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=DLCS
+Exec=python3 /home/pi/final_code/final/DLCS.py
+Icon=/home/pi/final_code/final/lockk.png
+Terminal=false
+Path=/home/pi/final_code/final/
